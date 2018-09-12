@@ -33,6 +33,12 @@ except ImportError:
     sys.exit(-1)
 
 try:
+    from BCBio import GFF as BCBio_GFF
+except ImportError:
+    print >> sys.stderr, "Unable to import BCBio! Please make sure bcbiogff is installed."
+    sys.exit(-1)
+
+try:
     from err_correct_w_genome import err_correct
     from sam_to_gff3 import convert_sam_to_gff3
     from STAR import STARJunctionReader
@@ -1291,7 +1297,6 @@ def rename_isoform_seqids(input_fasta):
         f.write(">{0}\n{1}\n".format(newid, r.seq))
     f.close()
     return f.name
-
 
 def main():
 
