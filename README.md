@@ -57,7 +57,7 @@ source activate anaCogent5.2
 (4) Install additional required libraries:
 
 ```
-conda install -n anaCogent5.2 pysam
+conda install -n anaCogent5.2 -c bioconda pysam
 conda install -n anaCogent5.2 psutil
 conda install -n anaCogent5.2 biopython
 conda install -n anaCogent5.2 -c http://conda.anaconda.org/cgat bx-python
@@ -84,11 +84,11 @@ $ source activate anaCogent5.2
 2.11-r797
 ```
 
-### Input to SQANTI QC
+#### Input to SQANTI QC
 
-* Iso-Seq output. Preferably already mapped to the genome and [collapsed to unique transcripts](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#collapse). (FASTA/FASTQ)
-* Reference annotation in GTF format. For example [GENCODE](https://www.gencodegenes.org/releases/current.html) or [CHESS](http://ccb.jhu.edu/chess/).
-* Reference genome, in FASTA format. For example hg38. *Make sure your annotation GTF is based on the correct ref genome version!*
+* *Iso-Seq output*. Preferably already mapped to the genome and [collapsed to unique transcripts](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#collapse). (FASTA/FASTQ)
+* *Reference annotation* in GTF format. For example [GENCODE](https://www.gencodegenes.org/releases/current.html) or [CHESS](http://ccb.jhu.edu/chess/).
+* *Reference genome*, in FASTA format. For example hg38. *Make sure your annotation GTF is based on the correct ref genome version!*
 
 ### Running SQANTI QC
 
@@ -104,9 +104,13 @@ If you don't feel like running the ORF prediction part, use `--skipORF`. Just kn
 For example:
 
 ```
-python sqanti_qc2.py -t 30 touse.rep.fasta ~/share/gencode/gencode.v28.annotation.gtf /pbi/dept/bifx/etseng/genomes/hg38/hg38.fa
+python sqanti_qc2.py -t 30 example/touse.rep.fasta gencode.v28.annotation.gtf hg38.fa
 ```
 
 ### SQANTI QC output
+
+You can look at the [example](https://github.com/Magdoll/SQANTI2/tree/master/example) subfolder for a sample output. The PDF file shows all the figures drawn using R script [SQANTI_report2.R](https://github.com/Magdoll/SQANTI2/blob/master/utilities/SQANTI_report2.R), taking the `_classification.txt` and `_junctions.txt` as the two input. If you know R well, you are free to modify the R script to add new figures! I will be constantly adding new figures as well.
+
+Detailed explanation of `_classification.txt` and `_junctions.txt` to come.
 
 
