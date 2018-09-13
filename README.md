@@ -149,21 +149,21 @@ python sqanti_filter2.py touse.rep_classification.txt touse.rep.fasta
 
 SQANTI/SQANTI2 categorizes each isoform by finding the best matching reference transcript in the following order:
 
-* FSM (Full Splice Match): meaning the reference and query isoform have the same number of exons and each internal junction agree. The exact 5' start and 3' end can differ by any amount.
+* FSM (*Full Splice Match*): meaning the reference and query isoform have the same number of exons and each internal junction agree. The exact 5' start and 3' end can differ by any amount.
 
-* ISM (Incompelte Splice Match): the query isoform has 5' exons than the reference, but each internal junction agree. The exact 5' start and 3' end can differ by any amount.
+* ISM (*Incomplete Splice Match*): the query isoform has 5' exons than the reference, but each internal junction agree. The exact 5' start and 3' end can differ by any amount.
 
-* NIC (Novel In Catalog): the query isoform does not have a FSM or ISM match, but is using a combination of known donor/acceptor sites.
+* NIC (*Novel In Catalog*): the query isoform does not have a FSM or ISM match, but is using a combination of known donor/acceptor sites.
 
-* NNC (Novel Not in Catalog): the query isoform does not have a FSM or ISM match, and has at least one donor or acceptor site that is not annotated.
+* NNC (*Novel Not in Catalog*): the query isoform does not have a FSM or ISM match, and has at least one donor or acceptor site that is not annotated.
 
-* Antisense: the query isoform does not have overlap a same-strand reference gene but is anti-sense to an annotated gene. 
+* *Antisense*: the query isoform does not have overlap a same-strand reference gene but is anti-sense to an annotated gene. 
 
-* Genic Intron: the query isoform is completely contained within an annotated intron.
+* *Genic Intron*: the query isoform is completely contained within an annotated intron.
 
-* Genic Genomic: the query isoform overlaps with introns and exons.
+* *Genic Genomic*: the query isoform overlaps with introns and exons.
 
-* Intergenic: the query isoform is in the intergenic region.
+* *Intergenic*: the query isoform is in the intergenic region.
 
 
 ![sqanti_cat_explain](https://github.com/Magdoll/images_public/blob/master/github_isoseq3_wiki_figures/wiki_SQANTI_categorization_explanation.png)
@@ -178,17 +178,17 @@ The output `.classification.txt` has the following fields:
 3. `strand`: strand.
 4. `length`: isoform length.
 5. `exons`: number of exons.
-6. `structural_category`: one of the categories ["full-splice_match","incomplete-splice_match","novel_in_catalog","novel_not_in_catalog", "genic", "antisense", "fusion", "intergenic", "genic_intron"]
+6. `structural_category`: one of the categories ["full-splice_match", "incomplete-splice_match", "novel_in_catalog", "novel_not_in_catalog", "genic", "antisense", "fusion", "intergenic", "genic_intron"]
 7. `associated_gene`: the reference gene name.
 8. `associated_transcript`: the reference transcript name.
 9. `ref_length`: reference transcript length.
 10. `ref_exons`: reference transcript number of exons.
 11. `diff_to_TSS`: distance of query isoform 5' start to reference transcript start end. Negative value means query starts downstream of reference.
 12. `diff_to_TTS`: distance of query isoform 3' end to reference annotated end site. Negative value means query ends upstream of reference.
-13. `subcategory`: 
+13. `subcategory`: A/B/C. Ignore for now.
 14. `RTS_stage`: TRUE if one of the junctions could be a RT switching artifact.
 15. `all_canonical`: TRUE if all junctions have canonical splice sites.
-16. `min_sample_cov`: 
+16. `min_sample_cov`: sample with minimum coverage.
 17. `min_cov`: minimum junction coverage based on short read STAR junction output file. NA if no short read given.
 18. `min_cov_pos`: the junction that had the fewest coverage. NA if no short read data given.
 19. `sd_cov`: standard deviation of junction coverage counts from short read data. NA if no short read data given.
