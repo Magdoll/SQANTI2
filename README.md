@@ -1,6 +1,10 @@
 # SQANTI2
 
-Last Updated: 2018/09/12
+Last Updated: 2018/10/15
+
+## Updates
+
+2018.10.15 updated to version 1.1. modified use of SAM to GFF with added `source` parameter.
 
 Private repo for Liz's modified SQANTI. The original [SQANTI](https://bitbucket.org/ConesaLab/sqanti) is by Ana Conesa lab.
 
