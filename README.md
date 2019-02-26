@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 2018/10/15
+Last Updated: 02/26/2019
 
 ## Updates
+
+2019.02.26 updated to version 2.2. added support for CAGE peak (FANTOM5) and Intropolis junction BED. 
 
 2018.10.15 updated to version 1.1. modified use of SAM to GFF with added `source` parameter.
 
@@ -99,12 +101,18 @@ $ source activate anaCogent5.2
 * *Reference annotation* in GTF format. For example [GENCODE](https://www.gencodegenes.org/releases/current.html) or [CHESS](http://ccb.jhu.edu/chess/).
 * *Reference genome*, in FASTA format. For example hg38. *Make sure your annotation GTF is based on the correct ref genome version!*
 
+Optionally:
+
+* CAGE Peak data (from FANTOM5). I've provided a version of [CAGE Peak for hg38 genome](https://github.com/Magdoll/images_public/blob/master/SQANTI2_support_data/hg38.cage_peak_phase1and2combined_coord.bed.gz) which was originally from [FANTOM5](http://fantom.gsc.riken.jp/5/datafiles/latest/extra/CAGE_peaks/). 
+
+* [Intropolis](https://github.com/nellore/intropolis/blob/master/README.md) Junction BED file. I've provided a version of [Intropolis for hg38 genome, modified into STAR junction format](https://github.com/nellore/intropolis/blob/master/README.md).
+
 ### Running SQANTI QC
 
 The script usage is:
 
 ```
-python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out]
+python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out] [--cage_peak CAGE_PEAK_BED]
      <input_fasta> <annotation_gtf> <genome_fasta>
 ```
 
@@ -112,11 +120,23 @@ If you don't feel like running the ORF prediction part, use `--skipORF`. Just kn
 If you have short read data, you can run STAR to get the junction file (usually called `SJ.out.tab`, see [STAR manual](https://github.com/alexdobin/STAR/blob/master/doc/STARmanual.pdf)) and supply it to SQANTI2.
 
 
+
 For example:
 
 ```
-python sqanti_qc2.py -t 30 example/touse.rep.fasta gencode.v28.annotation.gtf hg38.fa
+python sqanti_qc2.py -t 30 example/touse.rep.fasta gencode.v29.annotation.gtf hg38_noalt.fa \
+      --cage_peak hg38.cage_peak_phase1and2combined_coord.bed \
+      --coverage Public_Intronpolis/intropolis.v1.hg19_with_liftover_to_hg38.tsv.modified
 ```
+
+If you have multiple bed files, you can use file patterns:
+
+```
+python sqanti_qc2.py -t 30 example/touse.rep.fasta gencode.v29.annotation.gtf hg38_noalt.fa \
+      --cage_peak hg38.cage_peak_phase1and2combined_coord.bed \
+      --coverage "JunctionBeds/samples.*.junctions.bed"
+```
+
 
 ### SQANTI QC output
 
@@ -209,5 +229,6 @@ The output `.classification.txt` has the following fields:
 30. `CDS_start`: CDS start.
 31. `CDS_end`: CDS end.
 32. `perc_A_downstreamTTS`: percent of genomic "A"s in the downstream 20 bp window. If this number if high (say > 0.8), the 3' end site of this isoform is probably not reliable.
-
+33. `dist_peak`: distance to closest TSS based on CAGE Peak data. Negative means upstream of TSS and positive means downstream of TSS. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 10000 bp of the PacBio transcript start site. Will be `NA` if none are found within 10000 bp.
+34. `within_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
 

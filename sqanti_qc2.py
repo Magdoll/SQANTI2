@@ -3,7 +3,7 @@
 # Authors: Lorena de la Fuente, Hector del Risco, Cecile Pereira and Manuel Tardaguila
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
-__version__='1.1'
+__version__='2.2'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -76,7 +76,7 @@ FIELDS_CLASS = ['isoform', 'chrom', 'strand', 'length',  'exons',  'structural_c
                 'min_sample_cov', 'min_cov', 'min_cov_pos',  'sd_cov', 'FL', 'n_indels',
                 'n_indels_junc',  'bite',  'iso_exp', 'gene_exp',  'ratio_exp',
                 'FSM_class',   'coding', 'ORF_length', 'CDS_length', 'CDS_start',
-                'CDS_end', 'perc_A_downstream_TTS']
+                'CDS_end', 'perc_A_downstream_TTS', 'dist_to_cage_peak', 'within_cage_peak']
 
 RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
 RSCRIPT_REPORT = 'SQANTI_report2.R'
@@ -174,7 +174,8 @@ class myQueryTranscripts:
                  ORFlen="NA", CDS_start="NA", CDS_end="NA",
                  isoExp ="NA", geneExp ="NA", coding ="non_coding",
                  refLen ="NA", refExons ="NA",
-                 FSM_class = None, percAdownTTS = None):
+                 FSM_class = None, percAdownTTS = None,
+                 dist_cage='NA', within_cage='NA'):
 
         self.id  = id
         self.tss_diff    = tss_diff
@@ -209,6 +210,8 @@ class myQueryTranscripts:
         self.FSM_class   = FSM_class
         self.bite        = bite
         self.percAdownTTS = percAdownTTS
+        self.dist_cage   = dist_cage
+        self.within_cage = within_cage
 
     def get_total_diff(self):
         return abs(self.tss_diff)+abs(self.tts_diff)
@@ -239,7 +242,22 @@ class myQueryTranscripts:
             return("NA")
 
     def __str__(self):
-        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand, str(self.length), str(self.num_exons), str(self.str_class), "_".join(set(self.genes)), self.id, str(self.refLen), str(self.refExons), str(self.tss_diff), str(self.tts_diff), self.subtype, self.RT_switching, self.canonical, str(self.min_samp_cov), str(self.min_cov), str(self.min_cov_pos), str(self.sd), str(self.FL), str(self.nIndels), str(self.nIndelsJunc), self.bite, str(self.isoExp), str(self.geneExp), str(self.ratioExp()), self.FSM_class, self.coding, str(self.ORFlen), str(self.CDSlen()), str(self.CDS_start), str(self.CDS_end), str(self.percAdownTTS))
+        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand,
+                                                                                                                                                           str(self.length), str(self.num_exons),
+                                                                                                                                                           str(self.str_class), "_".join(set(self.genes)),
+                                                                                                                                                           self.id, str(self.refLen), str(self.refExons),
+                                                                                                                                                           str(self.tss_diff), str(self.tts_diff),
+                                                                                                                                                           self.subtype, self.RT_switching,
+                                                                                                                                                           self.canonical, str(self.min_samp_cov),
+                                                                                                                                                           str(self.min_cov), str(self.min_cov_pos),
+                                                                                                                                                           str(self.sd), str(self.FL), str(self.nIndels),
+                                                                                                                                                           str(self.nIndelsJunc), self.bite, str(self.isoExp),
+                                                                                                                                                           str(self.geneExp), str(self.ratioExp()),
+                                                                                                                                                           self.FSM_class, self.coding, str(self.ORFlen),
+                                                                                                                                                           str(self.CDSlen()), str(self.CDS_start), str(self.CDS_end),
+                                                                                                                                                           str(self.percAdownTTS),
+                                                                                                                                                           str(self.dist_cage),
+                                                                                                                                                           str(self.within_cage))
 
 
     def as_dict(self):
@@ -275,7 +293,10 @@ class myQueryTranscripts:
          'CDS_length': self.CDSlen(),
          'CDS_start': self.CDS_start,
          'CDS_end': self.CDS_end,
-         'perc_A_downstream_TTS': self.percAdownTTS}
+         'perc_A_downstream_TTS': self.percAdownTTS,
+         'dist_to_cage_peak': self.dist_cage,
+         'within_cage_peak': self.within_cage
+         }
 
 class myQueryProteins:
 
@@ -667,6 +688,7 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, trec, geno
                                     percAdownTTS=str(percA))
 
 
+
     ##***************************************##
     ########### SPLICED TRANSCRIPTS ###########
     ##***************************************##
@@ -987,6 +1009,12 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
         print >> sys.stdout, "Splice Junction Coverage files not provided."
         fields_junc_cur = FIELDS_JUNC
 
+    if args.cage_peak is not None:
+        print >> sys.stdout, "**** Reading CAGE Peak data."
+        cage_peak_obj = CAGEPeak(args.cage_peak)
+    else:
+        cage_peak_obj = None
+
     # running classification
     print >> sys.stdout, "**** Performing Classification of Isoforms...."
 
@@ -1011,6 +1039,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
             # Find best reference hit
             isoform_hit = transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, rec, genome_dict, nPolyA=args.window)
 
+
             if isoform_hit.str_class == "anyKnownSpliceSite":
                 # not FSM or ISM --> see if it is NIC, NNC, or fusion
                 isoform_hit = novelIsoformsKnownGenes(isoform_hit, rec, junctions_by_chr, junctions_by_gene)
@@ -1028,6 +1057,17 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 novel_gene_index += 1
 
             isoforms_info[rec.id] = isoform_hit
+
+            # look at Cage Peak info (if available)
+            if cage_peak_obj is not None:
+                if rec.strand == '+':
+                    within_cage, dist_cage = cage_peak_obj.find(rec.chrom, rec.strand, rec.txStart)
+                else:
+                    within_cage, dist_cage = cage_peak_obj.find(rec.chrom, rec.strand, rec.txEnd)
+                isoform_hit.within_cage = within_cage
+                isoform_hit.dist_cage = dist_cage
+
+
             fout_class.writerow(isoform_hit.as_dict())
 
     return isoforms_info
@@ -1303,6 +1343,43 @@ def rename_isoform_seqids(input_fasta):
     f.close()
     return f.name
 
+
+class CAGEPeak:
+    def __init__(self, cage_bed_filename):
+        self.cage_bed_filename = cage_bed_filename
+        self.cage_peaks = defaultdict(lambda: IntervalTree()) # (chrom,strand) --> intervals of peaks
+
+        self.read_bed()
+
+    def read_bed(self):
+        for line in open(self.cage_bed_filename):
+            raw = line.strip().split()
+            chrom = raw[0]
+            start0 = int(raw[1])
+            end1 = int(raw[2])
+            strand = raw[5]
+            tss0 = int(raw[6])
+            self.cage_peaks[(chrom,strand)].insert(start0, end1, (tss0, start0, end1))
+
+    def find(self, chrom, strand, query, search_window=10000):
+        """
+        :param start0: 0-based start of the 5' end to query
+        :return: <True/False falls within a cage peak>, <nearest dist to TSS>
+        dist to TSS is 0 if right on spot
+        dist to TSS is + if downstream, - if upstream (watch for strand!!!)
+        """
+        within_peak, dist_peak = False, 'NA'
+        for (tss0,start0,end1) in self.cage_peaks[(chrom,strand)].find(query-search_window, query+search_window):
+            if not within_peak:
+                within_peak, dist_peak = (start0<=query<end1), (query - tss0) * (-1 if strand=='-' else +1)
+            else:
+                d = (query - tss0) * (-1 if strand=='-' else +1)
+                if abs(d) < abs(dist_peak):
+                    within_peak, dist_peak = (start0<=query<end1), d
+        return within_peak, dist_peak
+
+
+
 def main():
 
     global utilitiesPath
@@ -1312,6 +1389,7 @@ def main():
     parser.add_argument('isoforms', help='\tIsoforms (Fasta/fastq or gtf format; By default "fasta/fastq". GTF if specified -g option)')
     parser.add_argument('annotation', help='\t\tReference annotation file (GTF format)')
     parser.add_argument('genome', help='\t\tReference genome (Fasta format)')
+    parser.add_argument('--cage_peak', help='\t\tFANTOM5 Cage Peak (BED format, optional)')
     parser.add_argument("--skipORF", default=False, action="store_true", help="\t\tSkip ORF prediction (to save time)")
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
     parser.add_argument('-e','--expression', help='\t\tExpression matrix', required=False)
