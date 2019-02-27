@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 02/26/2019
+Last Updated: 02/27/2019
 
 ## Updates
+
+2019.02.27 updated to version 2.3. `junction_category` fixed to check for (ss5,ss3) pairs in provided GTF.
 
 2019.02.26 updated to version 2.2. added support for CAGE peak (FANTOM5) and Intropolis junction BED. 
 

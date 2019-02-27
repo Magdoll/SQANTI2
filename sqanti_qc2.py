@@ -3,7 +3,7 @@
 # Authors: Lorena de la Fuente, Hector del Risco, Cecile Pereira and Manuel Tardaguila
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
-__version__='2.2'
+__version__='2.3'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -976,7 +976,7 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
               "genomic_start_coord": d+1,  # write out as 1-based start
               "genomic_end_coord": a,      # already is 1-based end
               "transcript_coord": "?????",  # this is where the exon ends w.r.t to id sequence, ToDo: implement later
-              "junction_category": "known" if (min_diff_s==0 and min_diff_s==0) else "novel",
+              "junction_category": "known" if ((d,a) in junctions_by_chr[trec.chrom]['da_pairs']) else "novel",
               "start_site_category": "known" if min_diff_s==0 else "novel",
               "end_site_category": "known" if min_diff_e==0 else "novel",
               "diff_to_Ref_start_site": min_diff_s,
