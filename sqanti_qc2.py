@@ -3,7 +3,7 @@
 # Authors: Lorena de la Fuente, Hector del Risco, Cecile Pereira and Manuel Tardaguila
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
-__version__='2.2'
+__version__='2.4'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -76,7 +76,8 @@ FIELDS_CLASS = ['isoform', 'chrom', 'strand', 'length',  'exons',  'structural_c
                 'min_sample_cov', 'min_cov', 'min_cov_pos',  'sd_cov', 'FL', 'n_indels',
                 'n_indels_junc',  'bite',  'iso_exp', 'gene_exp',  'ratio_exp',
                 'FSM_class',   'coding', 'ORF_length', 'CDS_length', 'CDS_start',
-                'CDS_end', 'perc_A_downstream_TTS', 'dist_to_cage_peak', 'within_cage_peak']
+                'CDS_end', 'perc_A_downstream_TTS', 'dist_to_cage_peak', 'within_cage_peak',
+                'polyA_motif', 'polyA_dist']
 
 RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
 RSCRIPT_REPORT = 'SQANTI_report2.R'
@@ -1144,7 +1145,7 @@ def find_polyA_motif(genome_seq, polyA_motif_list):
     for motif in polyA_motif_list:
         i = genome_seq.find(motif)
         if i >= 0:
-            return motif, len(genome_seq)-i-len(motif)
+            return motif, -(len(genome_seq)-i-len(motif)+1)
     return 'NA', 'NA'
 
 def run(args):

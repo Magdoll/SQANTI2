@@ -4,6 +4,8 @@ Last Updated: 02/27/2019
 
 ## Updates
 
+2019.02.27 updated to version 2.4.  Added polyA motif finding.
+
 2019.02.27 updated to version 2.3. `junction_category` fixed to check for (ss5,ss3) pairs in provided GTF.
 
 2019.02.26 updated to version 2.2. added support for CAGE peak (FANTOM5) and Intropolis junction BED. 
@@ -109,12 +111,16 @@ Optionally:
 
 * [Intropolis](https://github.com/nellore/intropolis/blob/master/README.md) Junction BED file. I've provided a version of [Intropolis for hg38 genome, modified into STAR junction format](https://github.com/nellore/intropolis/blob/master/README.md).
 
+* polyA motif list. A ranked  list of polyA motifs to find upstream of the 3' end site. See [human polyA list](https://raw.githubusercontent.com/Magdoll/images_public/master/SQANTI2_support_data/human.polyA.list.txt) for an example.
+
 ### Running SQANTI QC
 
 The script usage is:
 
 ```
-python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out] [--cage_peak CAGE_PEAK_BED]
+python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out] 
+     [--cage_peak CAGE_PEAK_BED]
+     [--polyA_motif_list POLYA_LIST]
      <input_fasta> <annotation_gtf> <genome_fasta>
 ```
 
@@ -233,7 +239,8 @@ The output `.classification.txt` has the following fields:
 32. `perc_A_downstreamTTS`: percent of genomic "A"s in the downstream 20 bp window. If this number if high (say > 0.8), the 3' end site of this isoform is probably not reliable.
 33. `dist_peak`: distance to closest TSS based on CAGE Peak data. Negative means upstream of TSS and positive means downstream of TSS. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 10000 bp of the PacBio transcript start site. Will be `NA` if none are found within 10000 bp.
 34. `within_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
-
+35. `polyA_motif`: if `--polyA_motif_list` is given, shows the top ranking polyA motif found within 50 bp upstream of end.
+36. `polyA_dist`: if `--polyA_motif_list` is given, shows the location of the  last base of the hexamer. Position 0 is the putative poly(A) site. This distance is hence always negative because it is upstream. 
 
 ### Junction Output Explanation
 
