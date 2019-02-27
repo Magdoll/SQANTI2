@@ -3,7 +3,7 @@
 # Authors: Lorena de la Fuente, Hector del Risco, Cecile Pereira and Manuel Tardaguila
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
-__version__='2.3'
+__version__='2.2'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -175,7 +175,8 @@ class myQueryTranscripts:
                  isoExp ="NA", geneExp ="NA", coding ="non_coding",
                  refLen ="NA", refExons ="NA",
                  FSM_class = None, percAdownTTS = None,
-                 dist_cage='NA', within_cage='NA'):
+                 dist_cage='NA', within_cage='NA',
+                 polyA_motif='NA', polyA_dist='NA'):
 
         self.id  = id
         self.tss_diff    = tss_diff
@@ -212,6 +213,8 @@ class myQueryTranscripts:
         self.percAdownTTS = percAdownTTS
         self.dist_cage   = dist_cage
         self.within_cage = within_cage
+        self.polyA_motif = polyA_motif
+        self.polyA_dist  = polyA_dist
 
     def get_total_diff(self):
         return abs(self.tss_diff)+abs(self.tts_diff)
@@ -242,7 +245,7 @@ class myQueryTranscripts:
             return("NA")
 
     def __str__(self):
-        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand,
+        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand,
                                                                                                                                                            str(self.length), str(self.num_exons),
                                                                                                                                                            str(self.str_class), "_".join(set(self.genes)),
                                                                                                                                                            self.id, str(self.refLen), str(self.refExons),
@@ -257,7 +260,9 @@ class myQueryTranscripts:
                                                                                                                                                            str(self.CDSlen()), str(self.CDS_start), str(self.CDS_end),
                                                                                                                                                            str(self.percAdownTTS),
                                                                                                                                                            str(self.dist_cage),
-                                                                                                                                                           str(self.within_cage))
+                                                                                                                                                           str(self.within_cage),
+                                                                                                                                                           str(self.polyA_motif),
+                                                                                                                                                           str(self.polyA_dist))
 
 
     def as_dict(self):
@@ -295,7 +300,9 @@ class myQueryTranscripts:
          'CDS_end': self.CDS_end,
          'perc_A_downstream_TTS': self.percAdownTTS,
          'dist_to_cage_peak': self.dist_cage,
-         'within_cage_peak': self.within_cage
+         'within_cage_peak': self.within_cage,
+         'polyA_motif': self.polyA_motif,
+         'polyA_dist': self.polyA_dist
          }
 
 class myQueryProteins:
@@ -1015,6 +1022,19 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
     else:
         cage_peak_obj = None
 
+
+    if args.polyA_motif_list is not None:
+        print >> sys.stdout, "**** Reading PolyA motif list."
+        polyA_motif_list = []
+        for line in open(args.polyA_motif_list):
+            x = line.strip().upper().replace('U', 'A')
+            if any(s not in ('A','T','C','G') for s in x):
+                print >> sys.stderr, "PolyA motif must be A/T/C/G only! Saw: {0}. Abort!".format(x)
+                sys.exit(-1)
+            polyA_motif_list.append(x)
+    else:
+        polyA_motif_list = None
+
     # running classification
     print >> sys.stdout, "**** Performing Classification of Isoforms...."
 
@@ -1067,6 +1087,14 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 isoform_hit.within_cage = within_cage
                 isoform_hit.dist_cage = dist_cage
 
+            # polyA motif finding: look within 50 bp upstream of 3' end for the highest ranking polyA motif signal (user provided)
+            if polyA_motif_list is not None:
+                if rec.strand == '+':
+                    polyA_motif, polyA_dist = find_polyA_motif(str(genome_dict[rec.chrom][rec.txEnd-50:rec.txEnd].seq), polyA_motif_list)
+                else:
+                    polyA_motif, polyA_dist = find_polyA_motif(str(genome_dict[rec.chrom][rec.txStart:rec.txStart+50].reverse_complement().seq), polyA_motif_list)
+                isoform_hit.polyA_motif = polyA_motif
+                isoform_hit.polyA_dist = polyA_dist
 
             fout_class.writerow(isoform_hit.as_dict())
 
@@ -1106,6 +1134,18 @@ def pstdev(data):
     var = sum(pow(x - mean, 2) for x in data) / n  # variance
     return math.sqrt(var)  # standard deviation
 
+
+def find_polyA_motif(genome_seq, polyA_motif_list):
+    """
+    :param genome_seq: genomic sequence to search polyA motifs from, must already be oriented
+    :param polyA_motif_list: ranked list of motifs to find, report the top one found
+    :return: polyA_motif, polyA_dist (how many bases upstream is this found)
+    """
+    for motif in polyA_motif_list:
+        i = genome_seq.find(motif)
+        if i >= 0:
+            return motif, len(genome_seq)-i-len(motif)
+    return 'NA', 'NA'
 
 def run(args):
 
@@ -1390,6 +1430,7 @@ def main():
     parser.add_argument('annotation', help='\t\tReference annotation file (GTF format)')
     parser.add_argument('genome', help='\t\tReference genome (Fasta format)')
     parser.add_argument('--cage_peak', help='\t\tFANTOM5 Cage Peak (BED format, optional)')
+    parser.add_argument("--polyA_motif_list", help="\t\tRanked list of polyA motifs (text, optional)")
     parser.add_argument("--skipORF", default=False, action="store_true", help="\t\tSkip ORF prediction (to save time)")
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
     parser.add_argument('-e','--expression', help='\t\tExpression matrix', required=False)

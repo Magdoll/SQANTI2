@@ -234,3 +234,25 @@ The output `.classification.txt` has the following fields:
 33. `dist_peak`: distance to closest TSS based on CAGE Peak data. Negative means upstream of TSS and positive means downstream of TSS. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 10000 bp of the PacBio transcript start site. Will be `NA` if none are found within 10000 bp.
 34. `within_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
 
+
+### Junction Output Explanation
+
+1. `isoform`: Isoform ID
+2. `junction_number`: The i-th junction of the isoform
+3. `chrom`: Chromosome 
+4. `strand`: Strand
+5. `genomic_start_coord`: Start of the junction (1-based), note that if on - strand, this would be the junction acceptor site instead.
+6. `genomic_end_coord`: End of the junction (1-based), note that if on - strand, this would be the junction donor site instead.
+7. `transcript_coord`: Currently not implemented. Ignore.
+8. `junction_category`: `known` if the (donor-acceptor) combination is annotated in the GTF file, `novel` otherwise. Note that it is possible to have a `novel` junction even though both the donor and acceptor site are known, since the combination might be novel.
+9. `start_site_category`: `known` if the junction start site is annotated. If on - strand, this is actually the donor site.
+10. `end_site_category`: `known` if the junction end site is annotated. If on - strand, this is actually the acceptor site.
+11. `diff_to_Ref_start_site`: distance to closest annotated junction start site. If on - strand, this is actually the donor site.
+12. `diff_to_Ref_end_site`: distance to closest annotated junction end site. If on - strand, this is actually the acceptor site.
+13. `bite_junction`: TRUE if either or both the junction start/end site matches annotation.
+14. `splice_site`: Splice motif.
+15. `RTS_junction`: TRUE if junction is predicted to a template switching artifact.
+16. `indel_near_junct`: TRUE if there is alignment indel error near the junction site, indicating potential junction incorrectness.
+17. `sample_with_cov`: If `--coverage` (short read junction coverage info) is provided, shows the number of samples (cov files) that have short read that support this junction.
+18. `total_coverage`: Total number of short read support from all samples that cover this junction.
+
