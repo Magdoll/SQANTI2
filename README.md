@@ -244,6 +244,9 @@ The output `.classification.txt` has the following fields:
 
 ### Junction Output Explanation
 
+
+THe `.junctions.txt` file shows every junction for every PB isoform. NOTE because of this the *same* junction might appear multiple times if they are shared by multiple PB isoforms. 
+
 1. `isoform`: Isoform ID
 2. `junction_number`: The i-th junction of the isoform
 3. `chrom`: Chromosome 
