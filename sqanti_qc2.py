@@ -3,7 +3,8 @@
 # Authors: Lorena de la Fuente, Hector del Risco, Cecile Pereira and Manuel Tardaguila
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
-__version__='2.4'
+__author__  = "etseng@pacb.com"
+__version__ = '2.5'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -44,6 +45,7 @@ try:
     from err_correct_w_genome import err_correct
     from sam_to_gff3 import convert_sam_to_gff3
     from STAR import STARJunctionReader
+    from BED import LazyBEDPointReader
 except ImportError:
     print >> sys.stderr, "Unable to import err_correct_w_genome or sam_to_gff3.py! Please make sure cDNA_Cupcake/sequence/ is in $PYTHONPATH."
     sys.exit(-1)
@@ -68,7 +70,7 @@ FIELDS_JUNC = ['isoform', 'chrom', 'strand', 'junction_number', 'genomic_start_c
                    'start_site_category', 'end_site_category', 'diff_to_Ref_start_site',
                    'diff_to_Ref_end_site', 'bite_junction', 'splice_site', 'canonical',
                    'RTS_junction', 'indel_near_junct',
-                   'sample_with_cov', "total_coverage"] #+coverage_header
+                   'phyloP_start', 'phyloP_end', 'sample_with_cov', "total_coverage"] #+coverage_header
 
 FIELDS_CLASS = ['isoform', 'chrom', 'strand', 'length',  'exons',  'structural_category',
                 'associated_gene', 'associated_transcript',  'ref_length', 'ref_exons',
@@ -246,7 +248,7 @@ class myQueryTranscripts:
             return("NA")
 
     def __str__(self):
-        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand,
+        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand,
                                                                                                                                                            str(self.length), str(self.num_exons),
                                                                                                                                                            str(self.str_class), "_".join(set(self.genes)),
                                                                                                                                                            self.id, str(self.refLen), str(self.refExons),
@@ -931,7 +933,7 @@ def associationOverlapping(isoforms_hit, trec, junctions_by_chr):
     return isoforms_hit
 
 
-def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelInfo, genome_dict, fout, covInf=None, covNames=None):
+def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelInfo, genome_dict, fout, covInf=None, covNames=None, phyloP_reader=None):
     """
     :param trec: query isoform genePredRecord
     :param junctions_by_chr: dict of chr -> {'donors': <sorted list of donors>, 'acceptors': <sorted list of acceptors>, 'da_pairs': <sorted list of junctions>}
@@ -941,6 +943,7 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
     :param fout: DictWriter handle
     :param covInf: (optional) junction coverage information, dict of (chrom,strand) -> (0-based start,1-based end) -> dict of {sample -> unique read count}
     :param covNames: (optional) list of sample names for the junction coverage information
+    :param phyloP_reader: (optional) dict of (chrom,0-based coord) --> phyloP score
 
     Write a record for each junction in query isoform
     """
@@ -977,6 +980,13 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
         if covInf is not None:
             sample_cov = covInf[(trec.chrom, trec.strand)][(d,a)]
 
+        # if phyloP score dict exists, give the triplet score of (last base in donor exon), donor site -- similarly for acceptor
+        phyloP_start, phyloP_end = 'NA', 'NA'
+        if phyloP_reader is not None:
+            phyloP_start = ",".join(map(str, [phyloP_reader.get_pos(trec.chrom, d-1), phyloP_reader.get_pos(trec.chrom, d), phyloP_reader.get_pos(trec.chrom, d+1)]))
+            phyloP_end = ",".join(map(str, [phyloP_reader.get_pos(trec.chrom, a-1), phyloP_reader.get_pos(trec.chrom, a),
+                                              phyloP_reader.get_pos(trec.chrom, a+1)]))
+
         qj = {'isoform': trec.id,
               'junction_number': "junction_"+str(junction_index+1),
               "chrom": trec.chrom,
@@ -994,6 +1004,8 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
               "canonical": "canonical" if splice_site in accepted_canonical_sites else "non_canonical",
               "RTS_junction": "????", # First write ???? in _tmp, later is TRUE/FALSE
               "indel_near_junct": indel_near_junction,
+              "phyloP_start": phyloP_start,
+              "phyloP_end": phyloP_end,
               "sample_with_cov": sum(cov!=0 for cov in sample_cov.itervalues()) if covInf is not None else "NA",
               "total_coverage": sum(sample_cov.itervalues()) if covInf is not None else "NA"}
 
@@ -1036,6 +1048,13 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
     else:
         polyA_motif_list = None
 
+
+    if args.phyloP_bed is not None:
+        print >> sys.stdout, "**** Reading PhyloP BED file."
+        phyloP_reader = LazyBEDPointReader(args.phyloP_bed)
+    else:
+        phyloP_reader = None
+
     # running classification
     print >> sys.stdout, "**** Performing Classification of Isoforms...."
 
@@ -1069,7 +1088,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 isoform_hit = associationOverlapping(isoform_hit, rec, junctions_by_chr)
 
             # write out junction information
-            write_junctionInfo(rec, junctions_by_chr, accepted_canonical_sites, indelsJunc, genome_dict, fout_junc, covInf=SJcovInfo, covNames=SJcovNames)
+            write_junctionInfo(rec, junctions_by_chr, accepted_canonical_sites, indelsJunc, genome_dict, fout_junc, covInf=SJcovInfo, covNames=SJcovNames, phyloP_reader=phyloP_reader)
 
             if isoform_hit.str_class in ("intergenic", "genic_intron"):
                 # Liz: I don't find it necessary to cluster these novel genes. They should already be always non-overlapping.
@@ -1432,6 +1451,7 @@ def main():
     parser.add_argument('genome', help='\t\tReference genome (Fasta format)')
     parser.add_argument('--cage_peak', help='\t\tFANTOM5 Cage Peak (BED format, optional)')
     parser.add_argument("--polyA_motif_list", help="\t\tRanked list of polyA motifs (text, optional)")
+    parser.add_argument("--phyloP_bed", help="\t\tPhyloP BED for conservation score (BED, optional)")
     parser.add_argument("--skipORF", default=False, action="store_true", help="\t\tSkip ORF prediction (to save time)")
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
     parser.add_argument('-e','--expression', help='\t\tExpression matrix', required=False)
@@ -1448,6 +1468,10 @@ def main():
     parser.add_argument("-v", "--version", help="Display program version number.", action='version', version='SQANTI2 '+str(__version__))
 
     args = parser.parse_args()
+
+    if args.gtf:
+        print >> sys.stderr, "--gtf option currently not supported."
+        sys.exit(-1)
 
     # path and prefix for output files
     if args.output is None:

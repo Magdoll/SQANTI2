@@ -1,18 +1,30 @@
-__author__ = "etseng@pacb.com"
+__author__  = "etseng@pacb.com"
+__version__ = '2.5
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
 
 Only keep Iso-Seq isoforms if:
-The isoform is FSM, ISM, or NIC and does not have intrapriming
-The isoform is NNC, does not have intrapriming, not RT-switching, and all junctions are either all canonical or short-read-supported
-The isoform is antisense, intergenic, genic, does not have intrapriming, not RT-switching, and all junctions are either all canonical or short-read-supported
+The isoform is FSM, ISM, or NIC and (does not have intrapriming or has polyA_motif)
+The isoform is NNC, does not have intrapriming/or polyA motif, not RT-switching, and all junctions are either all canonical or short-read-supported
+The isoform is antisense, intergenic, genic, does not have intrapriming/or polyA motif, not RT-switching, and all junctions are either all canonical or short-read-supported
 
 """
 
-import os, sys, argparse
-from csv import DictReader
+import os, sys, argparse, subprocess
+import distutils.spawn
+from csv import DictReader, DictWriter
 from Bio import SeqIO
+from cupcake.io.BioReaders import GMAPSAMReader
+
+utilitiesPath =  os.path.dirname(os.path.realpath(__file__))+"/utilities/"
+RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
+RSCRIPT_REPORT = 'SQANTI_report2.R'
+
+if os.system(RSCRIPTPATH + " --version")!=0:
+    print >> sys.stderr, "Rscript executable not found! Abort!"
+    sys.exit(-1)
+
 
 CATEGORY_DICT = {'full-splice_match': 'FSM',
                  'incomplete-splice_match': 'ISM',
@@ -21,7 +33,8 @@ CATEGORY_DICT = {'full-splice_match': 'FSM',
                  'antisense': 'AS',
                  'intergenic': 'intergenic',
                  'genic_intron': 'intron',
-                 'genic': 'genic'}
+                 'genic': 'genic',
+                 'fusion': 'fusion'}
 
 def sqanti_filter_lite(args):
 
@@ -55,15 +68,15 @@ def sqanti_filter_lite(args):
         cat = CATEGORY_DICT[r['structural_category']]
 
         if cat in ['FSM', 'ISM', 'NIC']:
-            if percA >= args.intrapriming:
+            if (percA >= args.intrapriming and r['polyA_motif']=='NA'):
                 filter_flag, filter_msg = True, "IntraPriming"
         else:
-            if percA >= args.intrapriming:
+            if (percA >= args.intrapriming and r['polyA_motif']=='NA'):
                 filter_flag, filter_msg = True, "IntraPriming"
             elif is_RTS:
                 filter_flag, filter_msg = True, "RTSwitching"
             elif (not is_canonical) and (min_cov is None or (min_cov is not None and min_cov < args.min_cov)):
-                filter_flag, filter_msg = True, "LowCoverage"
+                filter_flag, filter_msg = True, "LowCoverage/Non-Canonical"
 
         if not filter_flag:
             seqids_to_keep.append(r['isoform'])
@@ -78,11 +91,52 @@ def sqanti_filter_lite(args):
     fout.close()
     print >> sys.stdout, "Output written to: {0}".format(fout.name)
 
+
+    # write out a new .classification.txt, .junctions.txt
+    outputClassPath = prefix + '.filtered_lite_classification.txt'
+    with open(outputClassPath, 'w') as f:
+        reader = DictReader(open(args.sqanti_class), delimiter='\t')
+        writer = DictWriter(f, reader.fieldnames, delimiter='\t')
+        writer.writeheader()
+        for r in reader:
+            if r['isoform'] in seqids_to_keep:
+                writer.writerow(r)
+        print >> sys.stdout, "Output written to: {0}".format(f.name)
+
+    outputJuncPath = prefix + '.filtered_lite_junctions.txt'
+    with open(outputJuncPath, 'w') as f:
+        reader = DictReader(open(args.sqanti_class.replace('_classification', '_junctions')), delimiter='\t')
+        writer = DictWriter(f, reader.fieldnames, delimiter='\t')
+        writer.writeheader()
+        for r in reader:
+            if r['isoform'] in seqids_to_keep:
+                writer.writerow(r)
+        print >> sys.stdout, "Output written to: {0}".format(f.name)
+
+    outputSam = prefix + '.filtered_lite.sam'
+    with open(outputSam, 'w') as f:
+        reader = GMAPSAMReader(args.sam_file, True)
+        f.write(reader.header)
+        for r in reader:
+            if r.qID in seqids_to_keep:
+                f.write(r.record_line + '\n')
+        print >> sys.stdout, "Output written to: {0}".format(f.name)
+
+
+    print >> sys.stderr, "**** Generating SQANTI report...."
+    cmd = RSCRIPTPATH + " {d}/{f} {c} {j}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath)
+    if subprocess.check_call(cmd, shell=True)!=0:
+        print >> sys.stderr, "ERROR running command: {0}".format(cmd)
+        sys.exit(-1)
+
+
+
 def main():
 
     parser = argparse.ArgumentParser(description="Filtering of Isoforms based on SQANTI attributes")
     parser.add_argument('sqanti_class', help='\t\tSQANTI classification output file.')
-    parser.add_argument('isoforms', help='\t\tFasta/Fastq isoform file to be filtered by SQANTI')
+    parser.add_argument('isoforms', help='\t\tfasta/fastq isoform file to be filtered by SQANTI')
+    parser.add_argument('sam_file', help='\t\tSAM alignment of the input fasta/fastq')
     parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.8)')
     parser.add_argument("-c", "--min_cov", type=int, default=0, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 0")
     #parser.add_argument("--always_keep_canonical", default=False, action="store_true", help="Always keep isoforms with all canonical junctions, regardless of other criteria. (default: False)")

@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 02/27/2019
+Last Updated: 03/10/2019
 
 ## Updates
+
+2019.03.10 updated to version 2.5. Fixed `sqanti_filter2.py` missing fusion category also using polyA_motif as part of filtering.
 
 2019.02.27 updated to version 2.4.  Added polyA motif finding.
 
