@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 03/10/2019
+Last Updated: 03/18/2019
 
 ## Updates
+
+2019.03.18 minor typo fixed for version 2.5. updated doc for `sqanti_filter2.py`
 
 2019.03.10 updated to version 2.5. Fixed `sqanti_filter2.py` missing fusion category also using polyA_motif as part of filtering.
 
@@ -163,7 +165,7 @@ I've made a lightweight filtering script based on SQANTI2 output that filters fo
 The script usage is:
 
 ```
-python sqanti_filter2.py <classification_txt> <input_fasta>
+python sqanti_filter2.py <classification_txt> <input_fasta> <input_sam>
          [-a INTRAPRIMING] [-c MIN_COV]
 ```
 
@@ -173,7 +175,9 @@ where `-a` determines the fraction of genomic 'A's above which the isoform will 
 For example:
 
 ```
-python sqanti_filter2.py touse.rep_classification.txt touse.rep.fasta
+python sqanti_filter2.py touse.rep_classification.txt \
+                         touse.rep.renamed_corrected.fasta \
+                         touse.rep.renamed_corrected.sam
 ```
 
 <a name="explain"/>
