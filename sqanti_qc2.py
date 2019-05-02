@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '2.5'
+__version__ = '2.6'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -58,7 +58,8 @@ except ImportError:
 
 
 GMAP_CMD = "gmap -D --cross-species -n 1 --max-intronlength-middle=2000000 --max-intronlength-ends=2000000 -L 3000000 -f samse -t {cpus} {dir} -d {name} -z {sense} {i} > {o}"
-MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -u{sense} -t {cpus} {g} {i} > {o}"
+MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -O6,24 -B4 -u{sense} -t {cpus} {g} {i} > {o}"
+DESALT_CMD = "deSALT aln {dir} {i} -t {cpus} -x ccs -o {o}"
 
 GMSP_PROG = os.path.join(utilitiesPath, "gmst", "gmst.pl")
 GMST_CMD = "perl " + GMSP_PROG + " -faa --strand direct --fnn --output {o} {i}"
@@ -356,6 +357,12 @@ def correctionPlusORFpred(args, genome_dict):
                                               g=args.genome,
                                               i=args.isoforms,
                                               o=corrSAM)
+                elif args.aligner_choice == "deSALT":
+                    print >> sys.stdout, "****Aligning reads with deSALT..."
+                    cmd = DESALT_CMD.format(cpus=args.gmap_threads,
+                                            dir=args.gmap_index,
+                                            i=args.isoforms,
+                                            o=corrSAM)
                 if subprocess.check_call(cmd, shell=True)!=0:
                     print >> sys.stderr, "ERROR running alignment cmd: {0}".format(cmd)
                     sys.exit(-1)
@@ -1449,6 +1456,7 @@ def main():
     parser.add_argument('isoforms', help='\tIsoforms (Fasta/fastq or gtf format; By default "fasta/fastq". GTF if specified -g option)')
     parser.add_argument('annotation', help='\t\tReference annotation file (GTF format)')
     parser.add_argument('genome', help='\t\tReference genome (Fasta format)')
+    parser.add_argument("--aligner_choice", choices=['minimap2', 'deSALT', 'gmap'], default='minimap2')
     parser.add_argument('--cage_peak', help='\t\tFANTOM5 Cage Peak (BED format, optional)')
     parser.add_argument("--polyA_motif_list", help="\t\tRanked list of polyA motifs (text, optional)")
     parser.add_argument("--phyloP_bed", help="\t\tPhyloP BED for conservation score (BED, optional)")
@@ -1492,17 +1500,14 @@ def main():
         sys.exit()
 
     if not args.gtf:
-        args.aligner_choice = "minimap2"
-        if args.gmap_index is not None:
-            args.aligner_choice = "gmap"
+        if args.aligner_choice == 'gmap':
             if not os.path.isdir(os.path.abspath(args.gmap_index)):
                 print >> sys.stderr, "GMAP index {0} doesn't exist! Abort.".format(args.gmap_index)
                 sys.exit()
-            else:
-                print("Aligner choice: GMAP.")
-        else:
-            print("Aligner choice: Minimap2.")
-
+        elif args.aligner_choice == 'deSALT':
+            if not os.path.isdir(os.path.abspath(args.gmap_index)):
+                print >> sys.stderr, "deSALT index {0} doesn't exist! Abort.".format(args.gmap_index)
+                sys.exit()
 
     args.isoforms = os.path.abspath(args.isoforms)
     if not os.path.isfile(args.isoforms):

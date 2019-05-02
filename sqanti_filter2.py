@@ -138,7 +138,7 @@ def main():
     parser.add_argument('isoforms', help='\t\tfasta/fastq isoform file to be filtered by SQANTI')
     parser.add_argument('sam_file', help='\t\tSAM alignment of the input fasta/fastq')
     parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.8)')
-    parser.add_argument("-c", "--min_cov", type=int, default=0, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 0")
+    parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")
     #parser.add_argument("--always_keep_canonical", default=False, action="store_true", help="Always keep isoforms with all canonical junctions, regardless of other criteria. (default: False)")
 
     args = parser.parse_args()

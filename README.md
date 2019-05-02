@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 03/18/2019
+Last Updated: 05/02/2019
 
 ## Updates
+
+2019.05.02 updated to version 2.6. Added deSALT aligner support using `--aligner=deSALT`.
 
 2019.03.18 minor typo fixed for version 2.5. updated doc for `sqanti_filter2.py`
 
@@ -100,7 +102,7 @@ Activate the Anaconda environment. Make sure minimap2 works. Add `cDNA_Cupcake/s
 $ source activate anaCogent5.2
 (anaCogent5.2)-bash-4.1$ export PYTHONPATH=$PYTHONPATH:<path_to>/cDNA_Cupcake/sequence/
 (anaCogent5.2)-bash-4.1$ minimap2 --version
-2.11-r797
+2.15-r905
 ```
 
 #### Input to SQANTI QC
@@ -125,6 +127,7 @@ The script usage is:
 python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out] 
      [--cage_peak CAGE_PEAK_BED]
      [--polyA_motif_list POLYA_LIST]
+     [--aligner_choice=minimap2,deSALT]
      <input_fasta> <annotation_gtf> <genome_fasta>
 ```
 
