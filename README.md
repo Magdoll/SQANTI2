@@ -4,7 +4,7 @@ Last Updated: 05/02/2019
 
 ## Updates
 
-2019.05.02 updated to version 2.6. Added deSALT aligner support using `--aligner=deSALT`.
+2019.05.02 updated to version 2.6. Added deSALT aligner support using `--aligner=deSALT`. 
 
 2019.03.18 minor typo fixed for version 2.5. updated doc for `sqanti_filter2.py`
 
@@ -134,6 +134,10 @@ python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out]
 If you don't feel like running the ORF prediction part, use `--skipORF`. Just know that all your transcripts will be annotated as non-coding.
 If you have short read data, you can run STAR to get the junction file (usually called `SJ.out.tab`, see [STAR manual](https://github.com/alexdobin/STAR/blob/master/doc/STARmanual.pdf)) and supply it to SQANTI2.
 
+If `--aligner_choice=minimap2`, the minimap2 parameter used currently is: `minimap2 -ax splice --secondary=no -C5 -O6,24 -B4 -uf`
+If `--aligner_choice=deSALT`, the deSALT parameter used currently is: `deSALT aln -x ccs`. 
+
+You can look at the [`MINIMAP2_CMD` and `DESALT_CMD` in `sqanti_qc2.py` for the full command format](https://github.com/Magdoll/SQANTI2/blob/master/sqanti_qc2.py#L61).
 
 
 For example:
