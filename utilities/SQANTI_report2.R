@@ -939,11 +939,11 @@ p30 <- ggplot(data=data.class, aes(y=perc_A_downstream_TTS, x=structural_categor
     labs(title="Possible Intra-Priming by Structural Category\n\n",
          subtitle="Percent of genomic 'A's in downstream 20 bp\n\n") +
     theme(axis.title.x=element_blank()) +
-    scale_fill_manual(values=myPalette, breaks=c("3prime_fragment", "internal_fragment", "5prime_fragment",
+    scale_fill_manual(values=myPalette, breaks=c("intron_retention", "3prime_fragment", "internal_fragment", "5prime_fragment",
                              "mono-exon", "multi-exon", "combination_of_known_junctions",
                              "no_combination_of_known_junctions", "mono-exon_by_intron_retention/s",
                             "not any annotated donor/acceptor", "any annotated donor/acceptor"),
-                      labels=c("3' fragment", "Internal fragment", "5' fragment",
+                      labels=c("Intron retention", "3' fragment", "Internal fragment", "5' fragment",
                              "Mono-exon", "Multi-exon", "Combination of annotated junctions",
                              "Not combination of annotated junctions", "Mono-exon by intron retention",
                              "Without annotated donors/acceptors", "At least one annotated donor/acceptor"), drop=F)

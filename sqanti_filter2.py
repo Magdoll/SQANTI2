@@ -68,10 +68,12 @@ def sqanti_filter_lite(args):
         cat = CATEGORY_DICT[r['structural_category']]
 
         if cat in ['FSM', 'ISM', 'NIC']:
-            if (percA >= args.intrapriming and r['polyA_motif']=='NA'):
+            if (percA >= args.intrapriming and r['polyA_motif']=='NA' and
+                    (r['diff_to_gene_TSS']=='NA' or abs(int(r['diff_to_gene_TTS'])) > args.max_dist_to_known_end)):
                 filter_flag, filter_msg = True, "IntraPriming"
         else:
-            if (percA >= args.intrapriming and r['polyA_motif']=='NA'):
+            if (percA >= args.intrapriming and r['polyA_motif']=='NA' and
+                    (r['diff_to_gene_TSS']=='NA' or abs(int(r['diff_to_gene_TTS'])) > args.max_dist_to_known_end)):
                 filter_flag, filter_msg = True, "IntraPriming"
             elif is_RTS:
                 filter_flag, filter_msg = True, "RTSwitching"
@@ -138,6 +140,7 @@ def main():
     parser.add_argument('isoforms', help='\t\tfasta/fastq isoform file to be filtered by SQANTI')
     parser.add_argument('sam_file', help='\t\tSAM alignment of the input fasta/fastq')
     parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.8)')
+    parser.add_argument('-m',"--max_dist_to_known_end", type=int, default=50, help="\t\tMaximum distance to an annotated 3' end to preserve as a valid 3' end and not filter out (default: 50bp)")
     parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")
     #parser.add_argument("--always_keep_canonical", default=False, action="store_true", help="Always keep isoforms with all canonical junctions, regardless of other criteria. (default: False)")
 

@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '2.6'
+__version__ = '2.7'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -57,8 +57,9 @@ except ImportError:
     sys.exit(-1)
 
 
-GMAP_CMD = "gmap -D --cross-species -n 1 --max-intronlength-middle=2000000 --max-intronlength-ends=2000000 -L 3000000 -f samse -t {cpus} {dir} -d {name} -z {sense} {i} > {o}"
+GMAP_CMD = "gmap --cross-species -n 1 --max-intronlength-middle=2000000 --max-intronlength-ends=2000000 -L 3000000 -f samse -t {cpus} -D {dir} -d {name} -z {sense} {i} > {o}"
 MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -O6,24 -B4 -u{sense} -t {cpus} {g} {i} > {o}"
+#MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -u{sense} -t {cpus} {g} {i} > {o}"
 DESALT_CMD = "deSALT aln {dir} {i} -t {cpus} -x ccs -o {o}"
 
 GMSP_PROG = os.path.join(utilitiesPath, "gmst", "gmst.pl")
@@ -75,7 +76,8 @@ FIELDS_JUNC = ['isoform', 'chrom', 'strand', 'junction_number', 'genomic_start_c
 
 FIELDS_CLASS = ['isoform', 'chrom', 'strand', 'length',  'exons',  'structural_category',
                 'associated_gene', 'associated_transcript',  'ref_length', 'ref_exons',
-                'diff_to_TSS', 'diff_to_TTS', 'subcategory', 'RTS_stage', 'all_canonical',
+                'diff_to_TSS', 'diff_to_TTS', 'diff_to_gene_TSS', 'diff_to_gene_TTS',
+                'subcategory', 'RTS_stage', 'all_canonical',
                 'min_sample_cov', 'min_cov', 'min_cov_pos',  'sd_cov', 'FL', 'n_indels',
                 'n_indels_junc',  'bite',  'iso_exp', 'gene_exp',  'ratio_exp',
                 'FSM_class',   'coding', 'ORF_length', 'CDS_length', 'CDS_start',
@@ -183,8 +185,10 @@ class myQueryTranscripts:
                  polyA_motif='NA', polyA_dist='NA'):
 
         self.id  = id
-        self.tss_diff    = tss_diff
-        self.tts_diff    = tts_diff
+        self.tss_diff    = tss_diff   # distance to TSS of best matching ref
+        self.tts_diff    = tts_diff   # distance to TTS of best matching ref
+        self.tss_gene_diff = 'NA' # min distance to TSS of all genes matching the ref
+        self.tts_gene_diff = 'NA' # min distance to TTS of all genes matching the ref
         self.genes 		 = genes if genes is not None else []
         self.AS_genes    = set()   # ref genes that are hit on the opposite strand
         self.transcripts = transcripts if transcripts is not None else []
@@ -282,6 +286,8 @@ class myQueryTranscripts:
          'ref_exons': self.refExons,
          'diff_to_TSS': self.tss_diff,
          'diff_to_TTS': self.tts_diff,
+         'diff_to_gene_TSS': self.tss_gene_diff,
+         'diff_to_gene_TTS': self.tts_gene_diff,
          'subcategory': self.subtype,
          'RTS_stage': self.RT_switching,
          'all_canonical': self.canonical,
@@ -468,7 +474,7 @@ def correctionPlusORFpred(args, genome_dict):
                     orf_length -= pos
                     cds_start += pos*3
                     newid = "{0}|{1}_aa|{2}|{3}|{4}".format(id_pre, orf_length, orf_strand, cds_start, cds_end)
-                    newseq = r.seq.tostring()[pos:]
+                    newseq = str(r.seq)[pos:]
                     orfDict[r.id] = myQueryProteins(cds_start, cds_end, orf_length, proteinID=newid)
                     f.write(">{0}\n{1}\n".format(newid, newseq))
                 else:
@@ -514,11 +520,15 @@ def reference_parser(args, genome_chroms):
     junctions_by_chr = defaultdict(lambda: {'donors': set(), 'acceptors': set(), 'da_pairs': set()})
     # dict of gene name --> set of junctions (don't need to record chromosome)
     junctions_by_gene = defaultdict(lambda: set())
+    # dict of gene name --> list of known begins and ends (begin always < end, regardless of strand)
+    known_5_3_by_gene = defaultdict(lambda: {'begin':set(), 'end': set()})
 
     for r in genePredReader(referenceFiles):
         if r.length < 200: continue # ignore miRNAs
         if r.exonCount == 1:
             refs_1exon_by_chr[r.chrom].insert(r.txStart, r.txEnd, r)
+            known_5_3_by_gene[r.gene]['begin'].add(r.txStart)
+            known_5_3_by_gene[r.gene]['end'].add(r.txEnd)
         else:
             refs_exons_by_chr[r.chrom].insert(r.txStart, r.txEnd, r)
             # only store junctions for multi-exon transcripts
@@ -527,6 +537,8 @@ def reference_parser(args, genome_chroms):
                 junctions_by_chr[r.chrom]['acceptors'].add(a)
                 junctions_by_chr[r.chrom]['da_pairs'].add((d,a))
                 junctions_by_gene[r.gene].add((d,a))
+            known_5_3_by_gene[r.gene]['begin'].add(r.txStart)
+            known_5_3_by_gene[r.gene]['end'].add(r.txEnd)
 
     # check that all genes' chromosomes are in the genome file
     ref_chroms = set(refs_1exon_by_chr.keys()).union(refs_exons_by_chr.keys())
@@ -543,7 +555,7 @@ def reference_parser(args, genome_chroms):
         junctions_by_chr[k]['da_pairs'] = list(junctions_by_chr[k]['da_pairs'])
         junctions_by_chr[k]['da_pairs'].sort()
 
-    return dict(refs_1exon_by_chr), dict(refs_exons_by_chr), dict(junctions_by_chr), dict(junctions_by_gene)
+    return dict(refs_1exon_by_chr), dict(refs_exons_by_chr), dict(junctions_by_chr), dict(junctions_by_gene), dict(known_5_3_by_gene)
 
 
 def isoforms_parser(args):
@@ -636,7 +648,7 @@ def expression_parser(expressionFile):
 
 
 
-def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, trec, genome_dict, nPolyA):
+def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends_by_gene, trec, genome_dict, nPolyA):
     """
     :param refs_1exon_by_chr: dict of single exon references (chr -> IntervalTree)
     :param refs_exons_by_chr: dict of multi exon references (chr -> IntervalTree)
@@ -653,6 +665,28 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, trec, geno
             diff_tts = trec.txStart - ref.txStart
             diff_tss = ref.txEnd - trec.txEnd
         return diff_tss, diff_tts
+
+
+    def get_gene_diff_tss_tts(isoform_hit):
+        # now that we know the reference (isoform) it hits
+        # add the nearest start/end site for that gene (all isoforms of the gene)
+        nearest_start_diff, nearest_end_diff = float('inf'), float('inf')
+        for ref_gene in isoform_hit.genes:
+            for x in start_ends_by_gene[ref_gene]['begin']:
+                d = trec.txStart - x
+                if abs(d) < abs(nearest_start_diff):
+                    nearest_start_diff = d
+            for x in start_ends_by_gene[ref_gene]['end']:
+                d = trec.txEnd - x
+                if abs(d) < abs(nearest_end_diff):
+                    nearest_end_diff = d
+
+        if trec.strand == '+':
+            isoform_hit.tss_gene_diff = nearest_start_diff if nearest_start_diff!=float('inf') else 'NA'
+            isoform_hit.tts_gene_diff = nearest_end_diff if nearest_end_diff!=float('inf') else 'NA'
+        else:
+            isoform_hit.tss_gene_diff = -nearest_end_diff if nearest_start_diff!=float('inf') else 'NA'
+            isoform_hit.tts_gene_diff = -nearest_start_diff if nearest_end_diff!=float('inf') else 'NA'
 
     def categorize_incomplete_matches(trec, ref):
         """
@@ -703,8 +737,6 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, trec, geno
                                     strand=trec.strand, \
                                     subtype="no_subcategory",\
                                     percAdownTTS=str(percA))
-
-
 
     ##***************************************##
     ########### SPLICED TRANSCRIPTS ###########
@@ -765,7 +797,7 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, trec, geno
                     isoform_hit.modify(ref.id, ref.gene, diff_tss, diff_tts, ref.length, ref.exonCount)
                     isoform_hit.subtype = subtype
             # #######################################################
-            # Some kind of junctio nmatch that isn't ISM/FSM
+            # Some kind of junction match that isn't ISM/FSM
             # #######################################################
             elif match_type in ('partial', 'concordant', 'super', 'nomatch') and isoform_hit.str_class not in ('full-splice_match', 'incomplete-splice_match'):
                 if isoform_hit.str_class=="":
@@ -816,21 +848,13 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, trec, geno
                     continue
                 diff_tss, diff_tts = get_diff_tss_tts(trec, ref)
 
-                # ToDo: debug why these two are worse categorized in the new sqanti fix
-                if trec.id in ('PB.2009.1', 'PB.1276.3'):
-                    print "DEBUG", trec.id
-                    print "query:", trec.txStart, trec.txEnd
-                    print "ref:", ref.id, "exons:", ref.exons
-                    for e in ref.exons:
-                        print e.start <= trec.txStart < trec.txEnd <= e.end
-                    #raw_input()
-
                 for e in ref.exons:
                     if e.start <= trec.txStart < trec.txEnd <= e.end:
                         isoform_hit.str_class = "incomplete-splice_match"
                         isoform_hit.subtype = "mono-exon"
                         isoform_hit.modify(ref.id, ref.gene, diff_tss, diff_tts, ref.length, ref.exonCount)
                         # this is as good a match as it gets, we can stop the search here
+                        get_gene_diff_tss_tts(isoform_hit)
                         return isoform_hit
 
                 # if we haven't exited here, then ISM hit is not found yet
@@ -839,12 +863,14 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, trec, geno
                 if ref.txStart <= trec.txStart < trec.txEnd <= ref.txEnd:
                     isoform_hit.str_class = "novel_in_catalog"
                     isoform_hit.subtype = "mono-exon_by_intron_retention"
-                    isoform_hit.modify("novel", ref.gene, diff_tss, diff_tts, ref.length, ref.exonCount)
+                    isoform_hit.modify("novel", ref.gene, 'NA', 'NA', ref.length, ref.exonCount)
+                    get_gene_diff_tss_tts(isoform_hit)
                     return isoform_hit
 
                 # if we get to here, means neither ISM nor NIC, so just add a ref gene and categorize further later
                 isoform_hit.genes.append(ref.gene)
 
+    get_gene_diff_tss_tts(isoform_hit)
     return isoform_hit
 
 
@@ -853,6 +879,13 @@ def novelIsoformsKnownGenes(isoforms_hit, trec, junctions_by_chr, junctions_by_g
     At this point: definitely not FSM or ISM, see if it is NIC, NNC, or fusion
     :return isoforms_hit: updated isoforms hit (myQueryTranscripts object)
     """
+    def has_intron_retention():
+        for e in trec.exons:
+            m = bisect.bisect_left(junctions_by_chr[trec.chrom]['da_pairs'], (e.start, e.end))
+            if m < len(junctions_by_chr[trec.chrom]['da_pairs']) and e.start <= junctions_by_chr[trec.chrom]['da_pairs'][m][0] < junctions_by_chr[trec.chrom]['da_pairs'][m][1] < e.end:
+                return True
+        return False
+
     ref_genes = list(set(isoforms_hit.genes))
 
     #
@@ -893,6 +926,9 @@ def novelIsoformsKnownGenes(isoforms_hit, trec, junctions_by_chr, junctions_by_g
         else:
             isoforms_hit.str_class = "fusion"
             isoforms_hit.subtype = "mono-exon" if trec.exonCount==1 else "multi-exon"
+
+    if has_intron_retention():
+        isoforms_hit.subtype = "intron_retention"
 
     return isoforms_hit
 
@@ -1023,7 +1059,7 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
         fout.writerow(qj)
 
 
-def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, genome_dict, indelsJunc):
+def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc):
 
     ## read coverage files if provided
 
@@ -1084,7 +1120,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
     for chrom,records in isoforms_by_chr.iteritems():
         for rec in records:
             # Find best reference hit
-            isoform_hit = transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, rec, genome_dict, nPolyA=args.window)
+            isoform_hit = transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends_by_gene, rec, genome_dict, nPolyA=args.window)
 
 
             if isoform_hit.str_class == "anyKnownSpliceSite":
@@ -1188,7 +1224,7 @@ def run(args):
     orfDict = correctionPlusORFpred(args, genome_dict)
 
     ## parse reference id (GTF) to dicts
-    refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene = reference_parser(args, genome_dict.keys())
+    refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene = reference_parser(args, genome_dict.keys())
 
     ## parse query isoforms
     isoforms_by_chr = isoforms_parser(args)
@@ -1203,7 +1239,7 @@ def run(args):
         indelsTotal = None
 
     # isoform classification + intra-priming + id and junction characterization
-    isoforms_info = isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, genome_dict, indelsJunc)
+    isoforms_info = isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc)
 
     print >> sys.stdout, "Number of classified isoforms: {0}".format(len(isoforms_info))
 
@@ -1524,16 +1560,10 @@ def main():
         print >> sys.stderr, "ERROR: Annotation doesn't exist. Abort!".format(args.annotation)
         sys.exit()
 
-    if args.sense:
-        if args.aligner_choice == "gmap":
-            args.sense = "sense_force"
-        else:
-            args.sense = "auto"
-    else:
-        if args.aligner_choice == "minimap2":
-            args.sense = "f"
-        else:
-            args.sense = "b"
+    if args.aligner_choice == "gmap":
+        args.sense = "sense_force" if args.sense else "auto"
+    elif args.aligner_choice == "minimap2":
+        args.sense = "f" if args.sense else "b"
 
     # Running functionality
     print >> sys.stdout, "**** Running SQANTI..."

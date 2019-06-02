@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 05/02/2019
+Last Updated: 06/02/2019
 
 ## Updates
+
+2019.06.02 updated to version 2.7. Fixed GMAP option bug + added distance to closest annotated start/end for the gene (not ref isoform) and filtering afterwards.
 
 2019.05.02 updated to version 2.6. Added deSALT aligner support using `--aligner=deSALT`. 
 
