@@ -175,10 +175,14 @@ The script usage is:
 
 ```
 python sqanti_filter2.py <classification_txt> <input_fasta> <input_sam>
-         [-a INTRAPRIMING] [-c MIN_COV]
+         [-a INTRAPRIMING] [-c MIN_COV] [-m MAX_DIST_TO_KNOWN_END]
 ```
 
-where `-a` determines the fraction of genomic 'A's above which the isoform will be filtered. The default is `-a 0.8`. `-c` is the filter for the minimum short read junction support (looking at the `min_cov` field in `.classification.txt`), and can only be used if you have short read data.
+where `-a` determines the fraction of genomic 'A's above which the isoform will be filtered. The default is `-a 0.8`. 
+
+`-m` sets the maximum distance to an annotated 3' end (the `diff_to_gene_TTS` field in classification output) to offset the intrapriming rule.
+
+`-c` is the filter for the minimum short read junction support (looking at the `min_cov` field in `.classification.txt`), and can only be used if you have short read data.
 
 
 For example:
@@ -188,6 +192,14 @@ python sqanti_filter2.py touse.rep_classification.txt \
                          touse.rep.renamed_corrected.fasta \
                          touse.rep.renamed_corrected.sam
 ```
+
+The current filtering rules are as follow:
+
+* If a transcript is FSM, ISM, or NIC, then it is kept unless the 3' end is unreliable.
+* If a transcript is NNC, genic, genomic, then it is kept only if all of below are true: (1) 3' end is reliable (2) does not have a junction that is labeled as RTSwitching (3) all junctions are either canonical or has short read coverage above `-c` threshold
+
+A transcript 3' end is *unreliable* if both of the following are true: the genomic 'A' content is above the `-a` threshold *and* the distance to the known 3' end exceeeds the `-m` threshold.
+
 
 <a name="explain"/>
 
@@ -232,6 +244,8 @@ The output `.classification.txt` has the following fields:
 10. `ref_exons`: reference transcript number of exons.
 11. `diff_to_TSS`: distance of query isoform 5' start to reference transcript start end. Negative value means query starts downstream of reference.
 12. `diff_to_TTS`: distance of query isoform 3' end to reference annotated end site. Negative value means query ends upstream of reference.
+13. `diff_to_gene_TSS`: distance of query isoform 5' start to the closest start end of *any* transcripts of the matching gene. This field is different from `diff_to_TSS` since it's looking at all annotated starts of a gene. Negative value means query starts downstream of reference.
+14. `diff_to_gene_TTS`: distance of query isoform 3' end to the closest end of *any* transcripts of the matching gene. Negative value means query ends upstream of reference.
 13. `subcategory`: A/B/C. Ignore for now.
 14. `RTS_stage`: TRUE if one of the junctions could be a RT switching artifact.
 15. `all_canonical`: TRUE if all junctions have canonical splice sites.
