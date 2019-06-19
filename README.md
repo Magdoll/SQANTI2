@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 06/02/2019
+Last Updated: 06/19/2019
 
 ## Updates
+
+2019.06.19 updated to version 2.8. `sqanti_qc2.py` now works with fusion transcripts (must have ID `PBfusion.X`) using the `--is_fusion` option
 
 2019.06.02 updated to version 2.7. Fixed GMAP option bug + added distance to closest annotated start/end for the gene (not ref isoform) and filtering afterwards.
 
@@ -130,6 +132,7 @@ python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out]
      [--cage_peak CAGE_PEAK_BED]
      [--polyA_motif_list POLYA_LIST]
      [--aligner_choice=minimap2,deSALT]
+     [--is_fusion]
      <input_fasta> <annotation_gtf> <genome_fasta>
 ```
 
@@ -157,6 +160,9 @@ python sqanti_qc2.py -t 30 example/touse.rep.fasta gencode.v29.annotation.gtf hg
       --cage_peak hg38.cage_peak_phase1and2combined_coord.bed \
       --coverage "JunctionBeds/samples.*.junctions.bed"
 ```
+
+
+For fusion transcripts, you must use the `--is_fusion` option for `sqanti_qc2.py` to work properly. Furthermore, the IDs in the input FASTA/FASTQ *must* have the format `PBfusion.X`, as is output by [`fusion_finder.py` in Cupcake](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#fusion).
 
 
 ### SQANTI QC output

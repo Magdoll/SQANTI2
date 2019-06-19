@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '2.7'
+__version__ = '2.8'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -58,8 +58,8 @@ except ImportError:
 
 
 GMAP_CMD = "gmap --cross-species -n 1 --max-intronlength-middle=2000000 --max-intronlength-ends=2000000 -L 3000000 -f samse -t {cpus} -D {dir} -d {name} -z {sense} {i} > {o}"
-MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -O6,24 -B4 -u{sense} -t {cpus} {g} {i} > {o}"
-#MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -u{sense} -t {cpus} {g} {i} > {o}"
+#MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -O6,24 -B4 -u{sense} -t {cpus} {g} {i} > {o}"
+MINIMAP2_CMD = "minimap2 -ax splice --secondary=no -C5 -u{sense} -t {cpus} {g} {i} > {o}"
 DESALT_CMD = "deSALT aln {dir} {i} -t {cpus} -x ccs -o {o}"
 
 GMSP_PROG = os.path.join(utilitiesPath, "gmst", "gmst.pl")
@@ -323,6 +323,26 @@ class myQueryProteins:
         self.cds_end     = cds_end
         self.proteinID   = proteinID
 
+
+def rewrite_sam_for_fusion_ids(sam_filename):
+    seen_id_counter = Counter()
+
+    f = open(sam_filename+'.tmp', 'w')
+    for line in open(sam_filename):
+        if line.startswith('@'):
+            f.write(line)
+        else:
+            raw = line.strip().split('\t')
+            if not raw[0].startswith('PBfusion.'):
+                print >> sys.stderr, "Expecting fusion ID format `PBfusion.X` but saw {0} instead. Abort!".format(raw[0])
+                sys.exit(-1)
+            seen_id_counter[raw[0]] += 1
+            raw[0] = raw[0] + '.' + str(seen_id_counter[raw[0]])
+            f.write("\t".join(raw) + '\n')
+    f.close()
+    os.rename(f.name, sam_filename)
+    return sam_filename
+
 def correctionPlusORFpred(args, genome_dict):
     """
     Use the reference genome to correct the sequences (unless a pre-corrected GTF is given)
@@ -372,6 +392,10 @@ def correctionPlusORFpred(args, genome_dict):
                 if subprocess.check_call(cmd, shell=True)!=0:
                     print >> sys.stderr, "ERROR running alignment cmd: {0}".format(cmd)
                     sys.exit(-1)
+
+            # if is fusion - go in and change the IDs to reflect PBfusion.X.1, PBfusion.X.2...
+            if args.is_fusion:
+                corrSAM = rewrite_sam_for_fusion_ids(corrSAM)
             # error correct the genome (input: corrSAM, output: corrFASTA)
             err_correct(args.genome, corrSAM, corrFASTA, genome_dict=genome_dict)
             # convert SAM to GFF --> GTF
@@ -1427,14 +1451,14 @@ def rename_isoform_seqids(input_fasta):
     to just being "PB.1.1"
 
     :param input_fasta: Could be either fasta or fastq, autodetect.
-    :return: output fasta with the cleaned up sequence ID
+    :return: output fasta with the cleaned up sequence ID, is_fusion flag
     """
     type = 'fasta'
     with open(input_fasta) as h:
         if h.readline().startswith('@'): type = 'fastq'
     f = open(input_fasta[:input_fasta.rfind('.')]+'.renamed.fasta', 'w')
     for r in SeqIO.parse(open(input_fasta), type):
-        if r.id.startswith('PB.'):  # PacBio fasta header
+        if r.id.startswith('PB.') or r.id.startswith('PBfusion.'):  # PacBio fasta header
             newid = r.id.split('|')[0]
         else:
             raw = r.id.split('|')
@@ -1497,6 +1521,7 @@ def main():
     parser.add_argument("--polyA_motif_list", help="\t\tRanked list of polyA motifs (text, optional)")
     parser.add_argument("--phyloP_bed", help="\t\tPhyloP BED for conservation score (BED, optional)")
     parser.add_argument("--skipORF", default=False, action="store_true", help="\t\tSkip ORF prediction (to save time)")
+    parser.add_argument("--is_fusion", default=False, action="store_true", help="\t\tInput are fusion isoforms")
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
     parser.add_argument('-e','--expression', help='\t\tExpression matrix', required=False)
     parser.add_argument('-x','--gmap_index', help='\t\tPath and prefix of the reference index created by gmap_build. Mandatory unless -g option is specified.')
