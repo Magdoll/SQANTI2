@@ -1055,7 +1055,7 @@ print(p.length.cat)
 print(p.length.exon)
 
 # 2. general parameters by structual categories
-s <- textGrob("Structrual Isoform Characterization\nby Splice Junctions", gp=gpar(fontface="italic", fontsize=17), vjust = 0)
+s <- textGrob("Structural Isoform Characterization\nby Splice Junctions", gp=gpar(fontface="italic", fontsize=17), vjust = 0)
 grid.arrange(s)
 print(p1)
 print(p4)
