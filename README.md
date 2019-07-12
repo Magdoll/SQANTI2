@@ -1,8 +1,10 @@
 # SQANTI2
 
-Last Updated: 06/19/2019
+Last Updated: 07/12/2019
 
 ## Updates
+
+2019.07.12 updated to version 2.9. `sqanti_qc2.py` now annotates NMD prediction.
 
 2019.06.19 updated to version 2.8. `sqanti_qc2.py` now works with fusion transcripts (must have ID `PBfusion.X`) using the `--is_fusion` option
 

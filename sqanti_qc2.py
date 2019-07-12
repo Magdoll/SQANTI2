@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '2.8'
+__version__ = '2.9'
 
 import os, re, sys, subprocess, timeit, glob
 import itertools
@@ -46,12 +46,14 @@ try:
     from sam_to_gff3 import convert_sam_to_gff3
     from STAR import STARJunctionReader
     from BED import LazyBEDPointReader
+    import coordinate_mapper as cordmap
 except ImportError:
     print >> sys.stderr, "Unable to import err_correct_w_genome or sam_to_gff3.py! Please make sure cDNA_Cupcake/sequence/ is in $PYTHONPATH."
     sys.exit(-1)
 
 try:
     from cupcake.tofu.compare_junctions import compare_junctions
+    from cupcake.io.BioReaders import GMAPSAMReader
 except ImportError:
     print >> sys.stderr, "Unable to import cupcake.tofu! Please make sure you install cupcake."
     sys.exit(-1)
@@ -81,7 +83,8 @@ FIELDS_CLASS = ['isoform', 'chrom', 'strand', 'length',  'exons',  'structural_c
                 'min_sample_cov', 'min_cov', 'min_cov_pos',  'sd_cov', 'FL', 'n_indels',
                 'n_indels_junc',  'bite',  'iso_exp', 'gene_exp',  'ratio_exp',
                 'FSM_class',   'coding', 'ORF_length', 'CDS_length', 'CDS_start',
-                'CDS_end', 'perc_A_downstream_TTS', 'dist_to_cage_peak', 'within_cage_peak',
+                'CDS_end', 'CDS_genomic_start', 'CDS_genomic_end', 'predicted_NMD',
+                'perc_A_downstream_TTS', 'dist_to_cage_peak', 'within_cage_peak',
                 'polyA_motif', 'polyA_dist']
 
 RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
@@ -178,6 +181,7 @@ class myQueryTranscripts:
                  min_cov_pos ="NA", min_samp_cov="NA", sd ="NA", FL ="NA",
                  nIndels ="NA", nIndelsJunc ="NA", proteinID=None,
                  ORFlen="NA", CDS_start="NA", CDS_end="NA",
+                 CDS_genomic_start="NA", CDS_genomic_end="NA", is_NMD="NA",
                  isoExp ="NA", geneExp ="NA", coding ="non_coding",
                  refLen ="NA", refExons ="NA",
                  FSM_class = None, percAdownTTS = None,
@@ -209,6 +213,9 @@ class myQueryTranscripts:
         self.CDS_start   = CDS_start
         self.CDS_end     = CDS_end
         self.coding      = coding
+        self.CDS_genomic_start = CDS_genomic_start  # genomic coordinate of CDS start - strand aware
+        self.CDS_genomic_end = CDS_genomic_end      # genomic coordinate of CDS end - strand aware
+        self.is_NMD = is_NMD                        # (TRUE,FALSE) for NMD if is coding, otherwise "NA"
         self.FL          = FL
         self.nIndels     = nIndels
         self.nIndelsJunc = nIndelsJunc
@@ -253,7 +260,7 @@ class myQueryTranscripts:
             return("NA")
 
     def __str__(self):
-        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand,
+        return "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (self.chrom, self.strand,
                                                                                                                                                            str(self.length), str(self.num_exons),
                                                                                                                                                            str(self.str_class), "_".join(set(self.genes)),
                                                                                                                                                            self.id, str(self.refLen), str(self.refExons),
@@ -266,6 +273,7 @@ class myQueryTranscripts:
                                                                                                                                                            str(self.geneExp), str(self.ratioExp()),
                                                                                                                                                            self.FSM_class, self.coding, str(self.ORFlen),
                                                                                                                                                            str(self.CDSlen()), str(self.CDS_start), str(self.CDS_end),
+                                                                                                                                                           str(self.CDS_genomic_start), str(self.CDS_genomic_end), str(self.is_NMD),
                                                                                                                                                            str(self.percAdownTTS),
                                                                                                                                                            str(self.dist_cage),
                                                                                                                                                            str(self.within_cage),
@@ -308,6 +316,9 @@ class myQueryTranscripts:
          'CDS_length': self.CDSlen(),
          'CDS_start': self.CDS_start,
          'CDS_end': self.CDS_end,
+         'CDS_genomic_start': self.CDS_genomic_start,
+         'CDS_genomic_end': self.CDS_genomic_end,
+         'predicted_NMD': self.is_NMD,
          'perc_A_downstream_TTS': self.percAdownTTS,
          'dist_to_cage_peak': self.dist_cage,
          'within_cage_peak': self.within_cage,
@@ -321,6 +332,8 @@ class myQueryProteins:
         self.orf_length  = orf_length
         self.cds_start   = cds_start
         self.cds_end     = cds_end
+        self.cds_genomic_start = None
+        self.cds_genomic_end = None
         self.proteinID   = proteinID
 
 
@@ -1083,7 +1096,7 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
         fout.writerow(qj)
 
 
-def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc):
+def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc, orfDict):
 
     ## read coverage files if provided
 
@@ -1146,7 +1159,6 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
             # Find best reference hit
             isoform_hit = transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends_by_gene, rec, genome_dict, nPolyA=args.window)
 
-
             if isoform_hit.str_class == "anyKnownSpliceSite":
                 # not FSM or ISM --> see if it is NIC, NNC, or fusion
                 isoform_hit = novelIsoformsKnownGenes(isoform_hit, rec, junctions_by_chr, junctions_by_gene)
@@ -1162,8 +1174,6 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 isoform_hit.genes = ['novelGene_' + str(novel_gene_index)]
                 isoform_hit.transcripts = ['novel']
                 novel_gene_index += 1
-
-            isoforms_info[rec.id] = isoform_hit
 
             # look at Cage Peak info (if available)
             if cage_peak_obj is not None:
@@ -1183,6 +1193,24 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 isoform_hit.polyA_motif = polyA_motif
                 isoform_hit.polyA_dist = polyA_dist
 
+            # Fill in ORF/coding info and NMD detection
+            if rec.id in orfDict:
+                isoform_hit.coding = "coding"
+                isoform_hit.ORFlen = orfDict[rec.id].orf_length
+                isoform_hit.CDS_start = orfDict[rec.id].cds_start
+                isoform_hit.CDS_end = orfDict[rec.id].cds_end
+                isoform_hit.CDS_genomic_start = orfDict[rec.id].cds_genomic_start
+                isoform_hit.CDS_genomic_end = orfDict[rec.id].cds_genomic_end
+                # NMD detection
+                # if + strand, see if CDS stop is before the last junction
+                if len(rec.junctions) > 0:
+                    if rec.strand == '+':
+                        dist_to_last_junc = orfDict[rec.id].cds_genomic_end - rec.junctions[-1][0]
+                    else: # - strand
+                        dist_to_last_junc = rec.junctions[0][1] - orfDict[rec.id].cds_genomic_end
+                    isoform_hit.is_NMD = "TRUE" if dist_to_last_junc < 0 else "FALSE"
+
+            isoforms_info[rec.id] = isoform_hit
             fout_class.writerow(isoform_hit.as_dict())
 
     return isoforms_info
@@ -1262,8 +1290,17 @@ def run(args):
         indelsJunc = None
         indelsTotal = None
 
+    # if both corrSAM and orfDict is NOT empty, we can try to do NMD prediction now
+    for r in GMAPSAMReader(corrSAM, True):
+        if r.qID in orfDict:
+            m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
+            orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
+            orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
+            if r.strand == '-': orfDict[r.qID].cds_genomic_start += 3
+
+
     # isoform classification + intra-priming + id and junction characterization
-    isoforms_info = isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc)
+    isoforms_info = isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc, orfDict)
 
     print >> sys.stdout, "Number of classified isoforms: {0}".format(len(isoforms_info))
 
@@ -1283,12 +1320,12 @@ def run(args):
             isoforms_info[pbid].RT_switching = "FALSE"
 
     # ORF information
-    for pbid in orfDict:
-        if pbid in isoforms_info:
-            isoforms_info[pbid].coding = "coding"
-            isoforms_info[pbid].ORFlen = orfDict[pbid].orf_length
-            isoforms_info[pbid].CDS_start = orfDict[pbid].cds_start
-            isoforms_info[pbid].CDS_end = orfDict[pbid].cds_end
+#    for pbid in orfDict:
+#        if pbid in isoforms_info:
+#            isoforms_info[pbid].coding = "coding"
+#            isoforms_info[pbid].ORFlen = orfDict[pbid].orf_length
+#            isoforms_info[pbid].CDS_start = orfDict[pbid].cds_start
+#            isoforms_info[pbid].CDS_end = orfDict[pbid].cds_end
 
     ## FSM classification
     geneFSM_dicc = defaultdict(lambda: [])
@@ -1540,6 +1577,14 @@ def main():
 
     if args.gtf:
         print >> sys.stderr, "--gtf option currently not supported."
+        sys.exit(-1)
+
+    if args.expression:
+        print >> sys.stderr, "--expression option currently not supported."
+        sys.exit(-1)
+
+    if args.fl_count:
+        print >> sys.stderr, "--fl_count option currently not supported."
         sys.exit(-1)
 
     # path and prefix for output files
