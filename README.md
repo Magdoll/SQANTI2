@@ -1,6 +1,19 @@
 # SQANTI2
 
-Last Updated: 07/12/2019
+Last Updated: 07/15/2019
+
+## What is SQANTI2
+
+SQANTI2 is an updated version of SQANTI ([publication](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5848618/), [code repository](https://bitbucket.org/ConesaLab/sqanti)). 
+
+
+New features implemented in SQANTI2 that are not available in SQANTI:
+
+* NMD detection -- new field `predicted_NMD` in classification output.
+* Intron retention --- marked with `intron_retention` in `subcategory` field in classification output.
+* CAGE peak --- new fields `dist_peak` and `within_peak` in classification output. Must provide CAGE peak data.
+* polyA motif --- new field `polyA_motif` in classification output. Must provide polyA motif list.
+
 
 ## Updates
 
@@ -86,6 +99,13 @@ conda install -n anaCogent5.2 psutil
 conda install -n anaCogent5.2 biopython
 conda install -n anaCogent5.2 -c http://conda.anaconda.org/cgat bx-python
 conda install -n anaCogent5.2 -c bioconda bcbiogff
+```
+
+We also need to install [gtfToGenePred](https://bioconda.github.io/recipes/ucsc-gtftogenepred/README.html) and [gffread](https://bioconda.github.io/recipes/gffread/README.html).
+
+```
+conda install -n anaCogent5.2 -c bioconda ucsc-gtftogenepred
+conda install -n anaCogent5.2 -c bioconda gffread
 ```
 
 If you don't already have [cDNA_Cupcake](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#install) installed, you can do that now:
@@ -254,7 +274,7 @@ The output `.classification.txt` has the following fields:
 12. `diff_to_TTS`: distance of query isoform 3' end to reference annotated end site. Negative value means query ends upstream of reference.
 13. `diff_to_gene_TSS`: distance of query isoform 5' start to the closest start end of *any* transcripts of the matching gene. This field is different from `diff_to_TSS` since it's looking at all annotated starts of a gene. Negative value means query starts downstream of reference.
 14. `diff_to_gene_TTS`: distance of query isoform 3' end to the closest end of *any* transcripts of the matching gene. Negative value means query ends upstream of reference.
-13. `subcategory`: A/B/C. Ignore for now.
+13. `subcategory`: additional splicing categorization, separated by semi-colons. Categories include: `mono-exon`, `multi-exon`. Intron rentention is marked with `intron_retention`. 
 14. `RTS_stage`: TRUE if one of the junctions could be a RT switching artifact.
 15. `all_canonical`: TRUE if all junctions have canonical splice sites.
 16. `min_sample_cov`: sample with minimum coverage.
