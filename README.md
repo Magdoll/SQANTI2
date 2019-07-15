@@ -7,7 +7,7 @@ Last Updated: 07/15/2019
 SQANTI2 is an updated version of SQANTI ([publication](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5848618/), [code repository](https://bitbucket.org/ConesaLab/sqanti)). 
 
 
-New features implemented in SQANTI2 that are not available in SQANTI:
+New features implemented in SQANTI2 not available in SQANTI:
 
 * NMD detection -- new field `predicted_NMD` in classification output.
 * Intron retention --- marked with `intron_retention` in `subcategory` field in classification output.
