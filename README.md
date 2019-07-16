@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 07/15/2019
+Last Updated: 07/16/2019
 
 ## What is SQANTI2
 
@@ -16,6 +16,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 
 ## Updates
+
+2019.07.16 updated to version 3.0. now use Bioconda install of `gtfToGenePred` and `gffread`.
 
 2019.07.12 updated to version 2.9. `sqanti_qc2.py` now annotates NMD prediction.
 
@@ -78,34 +80,34 @@ conda -V
 conda update conda
 ```
 
-(2) Create a virutal environment. I will call it `anaCogent5.2`. Type `y` to agree to the interactive questions.
+(2) Create a virutal environment. I will call it `anaCogent3`. Type `y` to agree to the interactive questions.
 
 ```
-conda create -n anaCogent5.2 python=2.7 anaconda
-source activate anaCogent5.2
+conda create -n anaCogent3 python=2.7 anaconda
+source activate anaCogent3
 ```
 
 (3) Once you have activated the virtualenv, you should see your prompt changing to something like this:
 
 ```
-(anaCogent5.2)-bash-4.1$
+(anaCogent3)-bash-4.1$
 ```
 
 (4) Install additional required libraries:
 
 ```
-conda install -n anaCogent5.2 -c bioconda pysam
-conda install -n anaCogent5.2 psutil
-conda install -n anaCogent5.2 biopython
-conda install -n anaCogent5.2 -c http://conda.anaconda.org/cgat bx-python
-conda install -n anaCogent5.2 -c bioconda bcbiogff
+conda install -n anaCogent3 -c bioconda pysam
+conda install -n anaCogent3 psutil
+conda install -n anaCogent3 biopython
+conda install -n anaCogent3 -c http://conda.anaconda.org/cgat bx-python
+conda install -n anaCogent3 -c bioconda bcbiogff
 ```
 
 We also need to install [gtfToGenePred](https://bioconda.github.io/recipes/ucsc-gtftogenepred/README.html) and [gffread](https://bioconda.github.io/recipes/gffread/README.html).
 
 ```
-conda install -n anaCogent5.2 -c bioconda ucsc-gtftogenepred
-conda install -n anaCogent5.2 -c bioconda gffread
+conda install -n anaCogent3 -c bioconda ucsc-gtftogenepred openssl=1.0
+conda install -n anaCogent3 -c bioconda gffread
 ```
 
 If you don't already have [cDNA_Cupcake](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#install) installed, you can do that now:
@@ -125,9 +127,9 @@ No installation for SQANTI2 itself is required. The scripts can be run directly.
 Activate the Anaconda environment. Make sure minimap2 works. Add `cDNA_Cupcake/sequence` to `$PYTHONPATH`.
 
 ```
-$ source activate anaCogent5.2
-(anaCogent5.2)-bash-4.1$ export PYTHONPATH=$PYTHONPATH:<path_to>/cDNA_Cupcake/sequence/
-(anaCogent5.2)-bash-4.1$ minimap2 --version
+$ source activate anaCogent3
+(anaCogent3)-bash-4.1$ export PYTHONPATH=$PYTHONPATH:<path_to>/cDNA_Cupcake/sequence/
+(anaCogent3)-bash-4.1$ minimap2 --version
 2.15-r905
 ```
 

@@ -4,9 +4,10 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '2.9'
+__version__ = '3.0'
 
 import os, re, sys, subprocess, timeit, glob
+import distutils.spawn
 import itertools
 import bisect
 import argparse
@@ -67,6 +68,19 @@ DESALT_CMD = "deSALT aln {dir} {i} -t {cpus} -x ccs -o {o}"
 GMSP_PROG = os.path.join(utilitiesPath, "gmst", "gmst.pl")
 GMST_CMD = "perl " + GMSP_PROG + " -faa --strand direct --fnn --output {o} {i}"
 
+GTF2GENEPRED_PROG = "gtfToGenePred"
+GFFREAD_PROG = "gffread"
+
+if distutils.spawn.find_executable(GTF2GENEPRED_PROG) is None:
+    print >> sys.stderr, "Cannot find executable {0}. Abort!".format(GTF2GENEPRED_PROG)
+    sys.exit(-1)
+if distutils.spawn.find_executable(GFFREAD_PROG) is None:
+    print >> sys.stderr, "Cannot find executable {0}. Abort!".format(GFFREAD_PROG)
+    sys.exit(-1)
+
+
+seqid_rex1 = re.compile('PB\.(\d+)\.(\d+)$')
+seqid_rex2 = re.compile('PB\.(\d+)\.(\d+)\|\S+')
 
 
 FIELDS_JUNC = ['isoform', 'chrom', 'strand', 'junction_number', 'genomic_start_coord',
@@ -93,6 +107,7 @@ RSCRIPT_REPORT = 'SQANTI_report2.R'
 if os.system(RSCRIPTPATH + " --version")!=0:
     print >> sys.stderr, "Rscript executable not found! Abort!"
     sys.exit(-1)
+
 
 class genePredReader(object):
     def __init__(self, filename):
@@ -413,7 +428,7 @@ def correctionPlusORFpred(args, genome_dict):
             err_correct(args.genome, corrSAM, corrFASTA, genome_dict=genome_dict)
             # convert SAM to GFF --> GTF
             convert_sam_to_gff3(corrSAM, corrGTF+'.tmp', source=os.path.basename(args.genome).split('.')[0])  # convert SAM to GFF3
-            cmd = "{u}/gffread {o}.tmp -T -o {o}".format(u=utilitiesPath, o=corrGTF)
+            cmd = "{u}/{p} {o}.tmp -T -o {o}".format(u=utilitiesPath, o=corrGTF, p=GFFREAD_PROG)
             if subprocess.check_call(cmd, shell=True)!=0:
                 print >> sys.stderr, "ERROR running cmd: {0}".format(cmd)
                 sys.exit(-1)
@@ -436,7 +451,7 @@ def correctionPlusORFpred(args, genome_dict):
             # GFF to GTF (in case the user provides gff instead of gtf)
             corrGTF_tpm = corrGTF+".tmp"
             try:
-                subprocess.call([utilitiesPath+"gffread", args.isoforms , '-T', '-o', corrGTF_tpm])
+                subprocess.call([GFFREAD_PROG, args.isoforms , '-T', '-o', corrGTF_tpm])
             except (RuntimeError, TypeError, NameError):
                 sys.stderr.write('ERROR: File %s without gtf/gff format.\n' % args.isoforms)
                 raise SystemExit(1)
@@ -460,7 +475,7 @@ def correctionPlusORFpred(args, genome_dict):
                 sys.stdout.write("\nIndels will be not calculated since you ran SQANTI without alignment step (SQANTI with gtf format as transcriptome input).\n")
 
             # GTF to FASTA
-            subprocess.call([utilitiesPath+"gffread", corrGTF, '-g', args.genome, '-w', corrFASTA])
+            subprocess.call([GFFREAD_PROG, corrGTF, '-g', args.genome, '-w', corrFASTA])
 
     # ORF generation
     print >> sys.stdout, "**** Predicting ORF sequences..."
@@ -543,9 +558,9 @@ def reference_parser(args, genome_chroms):
     else:
         ## gtf to genePred
         if not args.geneid:
-            subprocess.call([utilitiesPath+"gtfToGenePred", args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons', '-geneNameAsName2'])
+            subprocess.call([GTF2GENEPRED_PROG, args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons', '-geneNameAsName2'])
         else:
-            subprocess.call([utilitiesPath+"gtfToGenePred", args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons'])
+            subprocess.call([GTF2GENEPRED_PROG, args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons'])
 
     ## parse reference annotation
     # 1. ignore all miRNAs (< 200 bp)
@@ -1296,7 +1311,7 @@ def run(args):
             m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
             orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
             orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
-            if r.strand == '-': orfDict[r.qID].cds_genomic_start += 3
+            if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
 
 
     # isoform classification + intra-priming + id and junction characterization
@@ -1479,7 +1494,7 @@ def run(args):
     print >> sys.stderr, "SQANTI complete in {0} sec.".format(stop3 - start3)
 
 
-def rename_isoform_seqids(input_fasta):
+def rename_isoform_seqids(input_fasta, force_id_ignore=False):
     """
     Rename input isoform fasta/fastq, which is usually mapped, collapsed Iso-Seq data with IDs like:
 
@@ -1495,6 +1510,11 @@ def rename_isoform_seqids(input_fasta):
         if h.readline().startswith('@'): type = 'fastq'
     f = open(input_fasta[:input_fasta.rfind('.')]+'.renamed.fasta', 'w')
     for r in SeqIO.parse(open(input_fasta), type):
+        m1 = seqid_rex1.match(r.id)
+        m2 = seqid_rex2.match(r.id)
+        if not force_id_ignore and (m1 is None and m2 is None):
+            print >> sys.stderr, "Invalid input IDs! Expected PB.X.Y or PB.X.Y|xxxxx format but saw {0} instead. Abort!".format(r.id)
+            sys.exit(-1)
         if r.id.startswith('PB.') or r.id.startswith('PBfusion.'):  # PacBio fasta header
             newid = r.id.split('|')[0]
         else:
@@ -1553,6 +1573,7 @@ def main():
     parser.add_argument('isoforms', help='\tIsoforms (Fasta/fastq or gtf format; By default "fasta/fastq". GTF if specified -g option)')
     parser.add_argument('annotation', help='\t\tReference annotation file (GTF format)')
     parser.add_argument('genome', help='\t\tReference genome (Fasta format)')
+    parser.add_argument("--force_id_ignore", action="store_true", default=False, help=argparse.SUPPRESS)
     parser.add_argument("--aligner_choice", choices=['minimap2', 'deSALT', 'gmap'], default='minimap2')
     parser.add_argument('--cage_peak', help='\t\tFANTOM5 Cage Peak (BED format, optional)')
     parser.add_argument("--polyA_motif_list", help="\t\tRanked list of polyA motifs (text, optional)")
@@ -1621,7 +1642,7 @@ def main():
         sys.exit()
 
     print >> sys.stderr, "Cleaning up isoform IDs..."
-    args.isoforms = rename_isoform_seqids(args.isoforms)
+    args.isoforms = rename_isoform_seqids(args.isoforms, args.force_id_ignore)
     print >> sys.stderr, "Cleaned up isoform fasta file written to: {0}".format(args.isoforms)
 
 
