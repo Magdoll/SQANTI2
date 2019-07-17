@@ -963,7 +963,7 @@ def novelIsoformsKnownGenes(isoforms_hit, trec, junctions_by_chr, junctions_by_g
                 isoforms_hit.subtype = "combination_of_known_splicesites"
         else:
             isoforms_hit.str_class="novel_not_in_catalog"
-            isoforms_hit.subtype = "at_least_one_novel_junction"
+            isoforms_hit.subtype = "at_least_one_novel_splicesite"
     else: # see if it is fusion
         # list of a ref junctions from all genes, including potential shared junctions
         all_ref_junctions = list(itertools.chain(junctions_by_gene[ref_gene] for ref_gene in ref_genes))
@@ -1019,7 +1019,7 @@ def associationOverlapping(isoforms_hit, trec, junctions_by_chr):
         if trec.exonCount >= 2:
             # multi-exon and has a same strand gene hit, must be NNC
             isoforms_hit.str_class = "novel_not_in_catalog"
-            isoforms_hit.subtype = "at_least_one_novel_junction"
+            isoforms_hit.subtype = "at_least_one_novel_splicesite"
         else:
             # single exon, must be genic
             isoforms_hit.str_class = "genic"
