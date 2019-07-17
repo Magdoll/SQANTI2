@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.0'
+__version__ = '3.1'
 
 import os, re, sys, subprocess, timeit, glob
 import distutils.spawn
@@ -433,19 +433,18 @@ def correctionPlusORFpred(args, genome_dict):
                 print >> sys.stderr, "ERROR running cmd: {0}".format(cmd)
                 sys.exit(-1)
         else:
-            print >> sys.stdout, "Skipping aligning of sequences because gtf file was provided."
+            print >> sys.stdout, "Skipping aligning of sequences because GTF file was provided."
 
             ind = 0
             with open(args.isoforms, 'r') as isoforms_gtf:
                 for line in isoforms_gtf:
                     if line[0] != "#" and len(line.split("\t"))!=9:
-                        sys.stderr.write("\nERROR: input isoforms file with not gtf format.\n")
+                        sys.stderr.write("\nERROR: input isoforms file with not GTF format.\n")
                         sys.exit()
                     elif len(line.split("\t"))==9:
                         ind += 1
-                if ind==0:
-                        sys.stderr.write("\nERROR: gtf has not annotation lines.\n")
-                        sys.exit()
+                if ind == 0:
+                    print >> sys.stderr, "WARNING: GTF has {0} no annotation lines.".format(args.isoforms)
 
 
             # GFF to GTF (in case the user provides gff instead of gtf)
@@ -453,7 +452,7 @@ def correctionPlusORFpred(args, genome_dict):
             try:
                 subprocess.call([GFFREAD_PROG, args.isoforms , '-T', '-o', corrGTF_tpm])
             except (RuntimeError, TypeError, NameError):
-                sys.stderr.write('ERROR: File %s without gtf/gff format.\n' % args.isoforms)
+                sys.stderr.write('ERROR: File %s without GTF/GFF format.\n' % args.isoforms)
                 raise SystemExit(1)
 
 
@@ -472,7 +471,7 @@ def correctionPlusORFpred(args, genome_dict):
             os.remove(corrGTF_tpm)
 
             if not os.path.exists(corrSAM):
-                sys.stdout.write("\nIndels will be not calculated since you ran SQANTI without alignment step (SQANTI with gtf format as transcriptome input).\n")
+                sys.stdout.write("\nIndels will be not calculated since you ran SQANTI2 without alignment step (SQANTI2 with gtf format as transcriptome input).\n")
 
             # GTF to FASTA
             subprocess.call([GFFREAD_PROG, corrGTF, '-g', args.genome, '-w', corrFASTA])
@@ -620,7 +619,7 @@ def isoforms_parser(args):
     print >> sys.stderr, "**** Parsing Isoforms...."
 
     # gtf to genePred
-    cmd = utilitiesPath+"gtfToGenePred {0} {1} -genePredExt -allErrors -ignoreGroupsWithoutExons".format(\
+    cmd = GTF2GENEPRED_PROG + " {0} {1} -genePredExt -allErrors -ignoreGroupsWithoutExons".format(\
         corrGTF, queryFile)
     if subprocess.check_call(cmd, shell=True)!=0:
         print >> sys.stderr, "ERROR running cmd: {0}".format(cmd)
@@ -961,10 +960,10 @@ def novelIsoformsKnownGenes(isoforms_hit, trec, junctions_by_chr, junctions_by_g
             if all_junctions_in_hit_ref:
                 isoforms_hit.subtype = "combination_of_known_junctions"
             else:
-                isoforms_hit.subtype = "no_combination_of_known_junctions"
+                isoforms_hit.subtype = "combination_of_known_splicesites"
         else:
             isoforms_hit.str_class="novel_not_in_catalog"
-            isoforms_hit.subtype = "any annotated donor/acceptor"
+            isoforms_hit.subtype = "at_least_one_novel_junction"
     else: # see if it is fusion
         # list of a ref junctions from all genes, including potential shared junctions
         all_ref_junctions = list(itertools.chain(junctions_by_gene[ref_gene] for ref_gene in ref_genes))
@@ -1020,7 +1019,7 @@ def associationOverlapping(isoforms_hit, trec, junctions_by_chr):
         if trec.exonCount >= 2:
             # multi-exon and has a same strand gene hit, must be NNC
             isoforms_hit.str_class = "novel_not_in_catalog"
-            isoforms_hit.subtype = "not any annotated donor/acceptor"
+            isoforms_hit.subtype = "at_least_one_novel_junction"
         else:
             # single exon, must be genic
             isoforms_hit.str_class = "genic"
@@ -1306,12 +1305,15 @@ def run(args):
         indelsTotal = None
 
     # if both corrSAM and orfDict is NOT empty, we can try to do NMD prediction now
-    for r in GMAPSAMReader(corrSAM, True):
-        if r.qID in orfDict:
-            m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
-            orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
-            orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
-            if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
+    if args.gtf:
+        print >> sys.stderr, "WARNING: SQANTI2 run with GTF input. No NMD prediction will be done!"
+    else:
+        for r in GMAPSAMReader(corrSAM, True):
+            if r.qID in orfDict:
+                m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
+                orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
+                orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
+                if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
 
 
     # isoform classification + intra-priming + id and junction characterization
@@ -1570,7 +1572,7 @@ def main():
 
     #arguments
     parser = argparse.ArgumentParser(description="Structural and Quality Annotation of Novel Transcript Isoforms")
-    parser.add_argument('isoforms', help='\tIsoforms (Fasta/fastq or gtf format; By default "fasta/fastq". GTF if specified -g option)')
+    parser.add_argument('isoforms', help='\tIsoforms (FASTA/FASTQ or gtf format; By default "FASTA/FASTQ". GTF if specified -g option)')
     parser.add_argument('annotation', help='\t\tReference annotation file (GTF format)')
     parser.add_argument('genome', help='\t\tReference genome (Fasta format)')
     parser.add_argument("--force_id_ignore", action="store_true", default=False, help=argparse.SUPPRESS)
@@ -1582,9 +1584,9 @@ def main():
     parser.add_argument("--is_fusion", default=False, action="store_true", help="\t\tInput are fusion isoforms")
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
     parser.add_argument('-e','--expression', help='\t\tExpression matrix', required=False)
-    parser.add_argument('-x','--gmap_index', help='\t\tPath and prefix of the reference index created by gmap_build. Mandatory unless -g option is specified.')
-    parser.add_argument('-t', '--gmap_threads', help='\t\tNumber of threads used during alignment by GMAP or Minimap2.', required=False, default="1", type=int)
-    parser.add_argument('-z', '--sense', help='\t\tOption that helps GMAP/Minimap2 know that the exons in you cDNA sequences are in the correct sense. Applicable just when you have a high quality set of cDNA sequences', required=False, action='store_true')
+    parser.add_argument('-x','--gmap_index', help='\t\tPath and prefix of the reference index created by gmap_build. Mandatory if using GMAP unless -g option is specified.')
+    parser.add_argument('-t', '--gmap_threads', help='\t\tNumber of threads used during alignment by aligners.', required=False, default="1", type=int)
+    parser.add_argument('-z', '--sense', help='\t\tOption that helps aligners know that the exons in you cDNA sequences are in the correct sense. Applicable just when you have a high quality set of cDNA sequences', required=False, action='store_true')
     parser.add_argument('-o','--output', help='\t\tPrefix for output files.', required=False)
     parser.add_argument('-d','--dir', help='\t\tDirectory for output files. Default: Directory where the script was run.', required=False)
     parser.add_argument('-c','--coverage', help='\t\tJunction coverage files (provide a single file or a file pattern, ex: "mydir/*.junctions").', required=False)
@@ -1596,9 +1598,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.gtf:
-        print >> sys.stderr, "--gtf option currently not supported."
-        sys.exit(-1)
+    #if args.gtf:
+    #    print >> sys.stderr, "--gtf option currently not supported."
+    #    sys.exit(-1)
 
     if args.expression:
         print >> sys.stderr, "--expression option currently not supported."
@@ -1626,6 +1628,11 @@ def main():
         print >> sys.stderr, "ERROR: genome fasta {0} doesn't exist. Abort!".format(args.genome)
         sys.exit()
 
+    args.isoforms = os.path.abspath(args.isoforms)
+    if not os.path.isfile(args.isoforms):
+        print >> sys.stderr, "ERROR: Input isoforms {0} doesn't exist. Abort!".format(args.isoforms)
+        sys.exit()
+
     if not args.gtf:
         if args.aligner_choice == 'gmap':
             if not os.path.isdir(os.path.abspath(args.gmap_index)):
@@ -1636,14 +1643,9 @@ def main():
                 print >> sys.stderr, "deSALT index {0} doesn't exist! Abort.".format(args.gmap_index)
                 sys.exit()
 
-    args.isoforms = os.path.abspath(args.isoforms)
-    if not os.path.isfile(args.isoforms):
-        print >> sys.stderr, "ERROR: Input isoforms {0} doesn't exist. Abort!".format(args.isoforms)
-        sys.exit()
-
-    print >> sys.stderr, "Cleaning up isoform IDs..."
-    args.isoforms = rename_isoform_seqids(args.isoforms, args.force_id_ignore)
-    print >> sys.stderr, "Cleaned up isoform fasta file written to: {0}".format(args.isoforms)
+        print >> sys.stderr, "Cleaning up isoform IDs..."
+        args.isoforms = rename_isoform_seqids(args.isoforms, args.force_id_ignore)
+        print >> sys.stderr, "Cleaned up isoform fasta file written to: {0}".format(args.isoforms)
 
 
     args.annotation = os.path.abspath(args.annotation)

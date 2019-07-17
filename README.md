@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 07/16/2019
+Last Updated: 07/17/2019
 
 ## What is SQANTI2
 
@@ -16,6 +16,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 
 ## Updates
+
+2019.07.17 updated to version 3.1. `sqanti_qc2.py` now supports GTF input `--gtf` again. Minor change to NIC subtype categorization naming.
 
 2019.07.16 updated to version 3.0. now use Bioconda install of `gtfToGenePred` and `gffread`.
 

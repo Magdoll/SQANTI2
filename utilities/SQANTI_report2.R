@@ -17,10 +17,9 @@ report.file <- paste(report.prefix, "sqanti_report.pdf", sep="_")
 
 #********************** Packages (install if not found)
 
-list.of.packages <- c("ggplot2", "scales", "reshape", "gridExtra", "grid", "dplyr")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-
+list_of_packages <- c("ggplot2", "scales", "reshape", "gridExtra", "grid", "dplyr")
+req_packages <- list_of_packages[!(list_of_packages %in% installed.packages()[,"Package"])]
+if(length(req_packages)) install.packages(req_packages, repo="http://cran.rstudio.com/")
 
 library(ggplot2)
 library(scales)
