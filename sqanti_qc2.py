@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.1'
+__version__ = '3.2'
 
 import os, re, sys, subprocess, timeit, glob
 import distutils.spawn
@@ -81,6 +81,7 @@ if distutils.spawn.find_executable(GFFREAD_PROG) is None:
 
 seqid_rex1 = re.compile('PB\.(\d+)\.(\d+)$')
 seqid_rex2 = re.compile('PB\.(\d+)\.(\d+)\|\S+')
+seqid_fusion = re.compile("PBfusion\.(\d+)")
 
 
 FIELDS_JUNC = ['isoform', 'chrom', 'strand', 'junction_number', 'genomic_start_coord',
@@ -428,7 +429,7 @@ def correctionPlusORFpred(args, genome_dict):
             err_correct(args.genome, corrSAM, corrFASTA, genome_dict=genome_dict)
             # convert SAM to GFF --> GTF
             convert_sam_to_gff3(corrSAM, corrGTF+'.tmp', source=os.path.basename(args.genome).split('.')[0])  # convert SAM to GFF3
-            cmd = "{u}/{p} {o}.tmp -T -o {o}".format(u=utilitiesPath, o=corrGTF, p=GFFREAD_PROG)
+            cmd = "{p} {o}.tmp -T -o {o}".format(o=corrGTF, p=GFFREAD_PROG)
             if subprocess.check_call(cmd, shell=True)!=0:
                 print >> sys.stderr, "ERROR running cmd: {0}".format(cmd)
                 sys.exit(-1)
@@ -1514,8 +1515,9 @@ def rename_isoform_seqids(input_fasta, force_id_ignore=False):
     for r in SeqIO.parse(open(input_fasta), type):
         m1 = seqid_rex1.match(r.id)
         m2 = seqid_rex2.match(r.id)
-        if not force_id_ignore and (m1 is None and m2 is None):
-            print >> sys.stderr, "Invalid input IDs! Expected PB.X.Y or PB.X.Y|xxxxx format but saw {0} instead. Abort!".format(r.id)
+        m3 = seqid_fusion.match(r.id)
+        if not force_id_ignore and (m1 is None and m2 is None and m3 is None):
+            print >> sys.stderr, "Invalid input IDs! Expected PB.X.Y or PB.X.Y|xxxxx or PBfusion.X format but saw {0} instead. Abort!".format(r.id)
             sys.exit(-1)
         if r.id.startswith('PB.') or r.id.startswith('PBfusion.'):  # PacBio fasta header
             newid = r.id.split('|')[0]
@@ -1597,6 +1599,10 @@ def main():
     parser.add_argument("-v", "--version", help="Display program version number.", action='version', version='SQANTI2 '+str(__version__))
 
     args = parser.parse_args()
+
+    if args.is_fusion:
+        print >> sys.stderr, "WARNING: Currently if --is_fusion is used, no ORFs will be predicted."
+        args.skipORF = True
 
     #if args.gtf:
     #    print >> sys.stderr, "--gtf option currently not supported."
