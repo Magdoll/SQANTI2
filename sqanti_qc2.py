@@ -1311,10 +1311,14 @@ def run(args):
     else:
         for r in GMAPSAMReader(corrSAM, True):
             if r.qID in orfDict:
-                m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
-                orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
-                orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
-                if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
+                try:
+                    m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
+                    orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
+                    orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
+                    if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
+                except:
+                    orfDict[r.qID].cds_genomic_start = None
+                    orfDict[r.qID].cds_genomic_end = None
 
 
     # isoform classification + intra-priming + id and junction characterization
