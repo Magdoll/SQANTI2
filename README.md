@@ -13,7 +13,10 @@ New features implemented in SQANTI2 not available in SQANTI:
 * Intron retention --- marked with `intron_retention` in `subcategory` field in classification output.
 * CAGE peak --- new fields `dist_peak` and `within_peak` in classification output. Must provide CAGE peak data.
 * polyA motif --- new field `polyA_motif` in classification output. Must provide polyA motif list.
+* CDS-annotated GFF --- SQANTI2 outputs a `xxxx.cds.gff` GFF file that annotates CDS regions.
 
+
+![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
 
@@ -260,8 +263,7 @@ SQANTI/SQANTI2 categorizes each isoform by finding the best matching reference t
 
 * *Intergenic*: the query isoform is in the intergenic region.
 
-
-![sqanti_cat_explain](https://github.com/Magdoll/images_public/blob/master/github_isoseq3_wiki_figures/wiki_SQANTI_categorization_explanation.png)
+![sqanti_explain](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_classification.png)
 
 
 #### Classification Output Explanation
