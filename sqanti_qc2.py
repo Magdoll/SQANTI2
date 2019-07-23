@@ -4,8 +4,9 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.2'
+__version__ = '3.3'
 
+import pdb
 import os, re, sys, subprocess, timeit, glob
 import distutils.spawn
 import itertools
@@ -19,7 +20,6 @@ utilitiesPath =  os.path.dirname(os.path.realpath(__file__))+"/utilities/"
 sys.path.insert(0, utilitiesPath)
 from rt_switching import rts
 from indels_annot import calc_indels_from_sam
-import distutils.spawn
 
 
 try:
@@ -55,6 +55,7 @@ except ImportError:
 try:
     from cupcake.tofu.compare_junctions import compare_junctions
     from cupcake.io.BioReaders import GMAPSAMReader
+    from cupcake.io.GFF import collapseGFFReader, write_collapseGFF_format
 except ImportError:
     print >> sys.stderr, "Unable to import cupcake.tofu! Please make sure you install cupcake."
     sys.exit(-1)
@@ -129,10 +130,10 @@ class genePredRecord(object):
         self.id = id
         self.chrom = chrom
         self.strand = strand
-        self.txStart = txStart
-        self.txEnd = txEnd
-        self.cdsStart = cdsStart
-        self.cdsEnd = cdsEnd
+        self.txStart = txStart         # 1-based start
+        self.txEnd = txEnd             # 1-based end
+        self.cdsStart = cdsStart       # 1-based start
+        self.cdsEnd = cdsEnd           # 1-based end
         self.exonCount = exonCount
         self.exonStarts = exonStarts   # 0-based starts
         self.exonEnds = exonEnds       # 1-based ends
@@ -145,6 +146,7 @@ class genePredRecord(object):
             self.length += e-s
             self.exons.append(Interval(s, e))
 
+        # junctions are stored (1-based last base of prev exon, 1-based first base of next exon)
         self.junctions = [(self.exonEnds[i],self.exonStarts[i+1]) for i in xrange(self.exonCount-1)]
 
     @property
@@ -156,17 +158,17 @@ class genePredRecord(object):
     def from_line(cls, line):
         raw = line.strip().split('\t')
         return cls(id=raw[0],
-                              chrom=raw[1],
-                              strand=raw[2],
-                              txStart=int(raw[3]),
-                              txEnd=int(raw[4]),
-                              cdsStart=int(raw[5]),
-                              cdsEnd=int(raw[6]),
-                              exonCount=int(raw[7]),
-                              exonStarts=map(int, raw[8][:-1].split(',')),  #exonStarts string has extra , at end
-                              exonEnds=map(int, raw[9][:-1].split(',')),     #exonEnds string has extra , at end
-                              gene=raw[11] if len(raw)>=12 else None,
-                              )
+                  chrom=raw[1],
+                  strand=raw[2],
+                  txStart=int(raw[3]),
+                  txEnd=int(raw[4]),
+                  cdsStart=int(raw[5]),
+                  cdsEnd=int(raw[6]),
+                  exonCount=int(raw[7]),
+                  exonStarts=map(int, raw[8][:-1].split(',')),  #exonStarts string has extra , at end
+                  exonEnds=map(int, raw[9][:-1].split(',')),     #exonEnds string has extra , at end
+                  gene=raw[11] if len(raw)>=12 else None,
+                  )
 
     def get_splice_site(self, genome_dict, i):
         """
@@ -207,14 +209,14 @@ class myQueryTranscripts:
         self.id  = id
         self.tss_diff    = tss_diff   # distance to TSS of best matching ref
         self.tts_diff    = tts_diff   # distance to TTS of best matching ref
-        self.tss_gene_diff = 'NA' # min distance to TSS of all genes matching the ref
-        self.tts_gene_diff = 'NA' # min distance to TTS of all genes matching the ref
+        self.tss_gene_diff = 'NA'     # min distance to TSS of all genes matching the ref
+        self.tts_gene_diff = 'NA'     # min distance to TTS of all genes matching the ref
         self.genes 		 = genes if genes is not None else []
         self.AS_genes    = set()   # ref genes that are hit on the opposite strand
         self.transcripts = transcripts if transcripts is not None else []
         self.num_exons = num_exons
         self.length      = length
-        self.str_class   = str_class  	# structural classification of the isoform.
+        self.str_class   = str_class  	# structural classification of the isoform
         self.chrom       = chrom
         self.strand 	 = strand
         self.subtype 	 = subtype
@@ -229,9 +231,9 @@ class myQueryTranscripts:
         self.CDS_start   = CDS_start
         self.CDS_end     = CDS_end
         self.coding      = coding
-        self.CDS_genomic_start = CDS_genomic_start  # genomic coordinate of CDS start - strand aware
-        self.CDS_genomic_end = CDS_genomic_end      # genomic coordinate of CDS end - strand aware
-        self.is_NMD = is_NMD                        # (TRUE,FALSE) for NMD if is coding, otherwise "NA"
+        self.CDS_genomic_start = CDS_genomic_start  # 1-based genomic coordinate of CDS start - strand aware
+        self.CDS_genomic_end = CDS_genomic_end      # 1-based genomic coordinate of CDS end - strand aware
+        self.is_NMD      = is_NMD                   # (TRUE,FALSE) for NMD if is coding, otherwise "NA"
         self.FL          = FL
         self.nIndels     = nIndels
         self.nIndelsJunc = nIndelsJunc
@@ -346,10 +348,10 @@ class myQueryProteins:
 
     def __init__(self, cds_start, cds_end, orf_length, proteinID="NA"):
         self.orf_length  = orf_length
-        self.cds_start   = cds_start
-        self.cds_end     = cds_end
-        self.cds_genomic_start = None
-        self.cds_genomic_end = None
+        self.cds_start   = cds_start       # 1-based start on transcript
+        self.cds_end     = cds_end         # 1-based end on transcript (stop codon), ORF is seq[cds_start-1:cds_end].translate()
+        self.cds_genomic_start = None      # 1-based genomic start of ORF, if - strand, is greater than end
+        self.cds_genomic_end = None        # 1-based genomic end of ORF
         self.proteinID   = proteinID
 
 
@@ -372,6 +374,37 @@ def rewrite_sam_for_fusion_ids(sam_filename):
     os.rename(f.name, sam_filename)
     return sam_filename
 
+
+def write_collapsed_GFF_with_CDS(isoforms_info, input_gff, output_gff):
+    """
+    Augment a collapsed GFF with CDS information
+    :param isoforms_info: dict of id -> QueryTranscript
+    :param input_gff:  input GFF filename
+    :param output_gff: output GFF filename
+    """
+    with open(output_gff, 'w') as f:
+        reader = collapseGFFReader(input_gff)
+        for r in reader:
+            s = isoforms_info[r.seqid].CDS_genomic_start  # could be 'NA'
+            e = isoforms_info[r.seqid].CDS_genomic_end    # could be 'NA'
+            r.cds_exons = []
+            if s!='NA' and e!='NA': # has ORF prediction for this isoform
+                if r.strand == '+':
+                    assert s < e
+                    s = s - 1 # make it 0-based
+                else:
+                    assert e < s
+                    s, e = e, s
+                    s = s - 1 # make it 0-based
+                for i,exon in enumerate(r.ref_exons):
+                    if exon.end > s: break
+                r.cds_exons = [Interval(s, min(e,exon.end))]
+                for exon in r.ref_exons[i+1:]:
+                    if exon.start > e: break
+                    r.cds_exons.append(Interval(exon.start, min(e, exon.end)))
+            write_collapseGFF_format(f, r)
+
+
 def correctionPlusORFpred(args, genome_dict):
     """
     Use the reference genome to correct the sequences (unless a pre-corrected GTF is given)
@@ -381,7 +414,7 @@ def correctionPlusORFpred(args, genome_dict):
     global corrSAM
     global corrFASTA
 
-    corrPathPrefix = args.dir+"/"+os.path.splitext(os.path.basename(args.isoforms))[0]
+    corrPathPrefix = os.path.join(args.dir, os.path.splitext(os.path.basename(args.isoforms))[0])
     corrGTF = corrPathPrefix +"_corrected.gtf"
     corrSAM = corrPathPrefix +"_corrected.sam"
     corrFASTA = corrPathPrefix +"_corrected.fasta"
@@ -536,7 +569,6 @@ def correctionPlusORFpred(args, genome_dict):
 
     if len(orfDict) == 0:
         print >> sys.stderr, "WARNING: All input isoforms were predicted as non-coding"
-
 
     return(orfDict)
 
@@ -914,7 +946,13 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
                 # but we don't exit here since the next gene could be a ISM hit
                 if ref.txStart <= trec.txStart < trec.txEnd <= ref.txEnd:
                     isoform_hit.str_class = "novel_in_catalog"
-                    isoform_hit.subtype = "mono-exon_by_intron_retention"
+                    isoform_hit.subtype = "mono-exon"
+                    # check for intron retention
+                    if len(ref.junctions) > 0:
+                        for (d,a) in ref.junctions:
+                            if trec.txStart < d < a < trec.txEnd:
+                                isoform_hit.subtype = "mono-exon_by_intron_retention"
+                                break
                     isoform_hit.modify("novel", ref.gene, 'NA', 'NA', ref.length, ref.exonCount)
                     get_gene_diff_tss_tts(isoform_hit)
                     return isoform_hit
@@ -1212,10 +1250,30 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
             if rec.id in orfDict:
                 isoform_hit.coding = "coding"
                 isoform_hit.ORFlen = orfDict[rec.id].orf_length
-                isoform_hit.CDS_start = orfDict[rec.id].cds_start
-                isoform_hit.CDS_end = orfDict[rec.id].cds_end
+                isoform_hit.CDS_start = orfDict[rec.id].cds_start  # 1-based start
+                isoform_hit.CDS_end = orfDict[rec.id].cds_end      # 1-based end
+
+                m = {} # transcript coord (0-based) --> genomic coord (0-based)
+                if rec.strand == '+':
+                    i = 0
+                    for exon in rec.exons:
+                        for c in xrange(exon.start, exon.end):
+                            m[i] = c
+                            i += 1
+                else: # - strand
+                    i = 0
+                    for exon in rec.exons:
+                        for c in xrange(exon.start, exon.end):
+                            m[rec.length-i-1] = c
+                            i += 1
+
+                orfDict[rec.id].cds_genomic_start = m[orfDict[rec.id].cds_start-1] + 1  # make it 1-based
+                orfDict[rec.id].cds_genomic_end   = m[orfDict[rec.id].cds_end-1] + 1    # make it 1-based
+
                 isoform_hit.CDS_genomic_start = orfDict[rec.id].cds_genomic_start
                 isoform_hit.CDS_genomic_end = orfDict[rec.id].cds_genomic_end
+                if orfDict[rec.id].cds_genomic_start is None: # likely SAM CIGAR mapping issue coming from aligner
+                    continue # we have to skip the NMD
                 # NMD detection
                 # if + strand, see if CDS stop is before the last junction
                 if len(rec.junctions) > 0:
@@ -1306,25 +1364,29 @@ def run(args):
         indelsTotal = None
 
     # if both corrSAM and orfDict is NOT empty, we can try to do NMD prediction now
-    if args.gtf:
-        print >> sys.stderr, "WARNING: SQANTI2 run with GTF input. No NMD prediction will be done!"
-    else:
-        for r in GMAPSAMReader(corrSAM, True):
-            if r.qID in orfDict:
-                try:
-                    m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
-                    orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
-                    orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
-                    if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
-                except:
-                    orfDict[r.qID].cds_genomic_start = None
-                    orfDict[r.qID].cds_genomic_end = None
+#    if args.gtf:
+#        print >> sys.stderr, "WARNING: SQANTI2 run with GTF input. No NMD prediction will be done!"
+#    else:
+#        for r in GMAPSAMReader(corrSAM, True):
+#            if r.qID in orfDict:
+#                try:
+#                    m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
+#                    orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
+#                    orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
+#                    if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
+#                except:
+#                    pdb.set_trace()
+#                    orfDict[r.qID].cds_genomic_start = None
+#                    orfDict[r.qID].cds_genomic_end = None
+#                    print >> sys.stderr, "WARNING: Issue with {0} SAM alignment. No NMD prediction will be done for {0}.".format(r.qID)
 
 
     # isoform classification + intra-priming + id and junction characterization
     isoforms_info = isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc, orfDict)
 
     print >> sys.stdout, "Number of classified isoforms: {0}".format(len(isoforms_info))
+
+    write_collapsed_GFF_with_CDS(isoforms_info, corrGTF, corrGTF+'.cds.gff')
 
     outputPathPrefix = os.path.join(args.dir, args.output)
     outputClassPath = outputPathPrefix + "_classification.txt"
@@ -1592,7 +1654,7 @@ def main():
     parser.add_argument('-e','--expression', help='\t\tExpression matrix', required=False)
     parser.add_argument('-x','--gmap_index', help='\t\tPath and prefix of the reference index created by gmap_build. Mandatory if using GMAP unless -g option is specified.')
     parser.add_argument('-t', '--gmap_threads', help='\t\tNumber of threads used during alignment by aligners.', required=False, default="1", type=int)
-    parser.add_argument('-z', '--sense', help='\t\tOption that helps aligners know that the exons in you cDNA sequences are in the correct sense. Applicable just when you have a high quality set of cDNA sequences', required=False, action='store_true')
+    #parser.add_argument('-z', '--sense', help='\t\tOption that helps aligners know that the exons in you cDNA sequences are in the correct sense. Applicable just when you have a high quality set of cDNA sequences', required=False, action='store_true')
     parser.add_argument('-o','--output', help='\t\tPrefix for output files.', required=False)
     parser.add_argument('-d','--dir', help='\t\tDirectory for output files. Default: Directory where the script was run.', required=False)
     parser.add_argument('-c','--coverage', help='\t\tJunction coverage files (provide a single file or a file pattern, ex: "mydir/*.junctions").', required=False)
@@ -1663,10 +1725,17 @@ def main():
         print >> sys.stderr, "ERROR: Annotation doesn't exist. Abort!".format(args.annotation)
         sys.exit()
 
+    #if args.aligner_choice == "gmap":
+    #    args.sense = "sense_force" if args.sense else "auto"
+    #elif args.aligner_choice == "minimap2":
+    #    args.sense = "f" if args.sense else "b"
+    ## (Liz) turned off option for --sense, always TRUE
     if args.aligner_choice == "gmap":
-        args.sense = "sense_force" if args.sense else "auto"
+        args.sense = "sense_force"
     elif args.aligner_choice == "minimap2":
-        args.sense = "f" if args.sense else "b"
+        args.sense = "f"
+    #elif args.aligner_choice == "deSALT":  #deSALT does not support this yet
+    #    args.sense = "--trans-strand"
 
     # Running functionality
     print >> sys.stdout, "**** Running SQANTI..."

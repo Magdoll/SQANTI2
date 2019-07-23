@@ -641,7 +641,7 @@ sub train{
 
 	#------------------------------------------------
 	# enter iterations loop
-    print "(Liz) metamodel ".$meta_model." next ".$next."\n";
+    #print "(Liz) metamodel ".$meta_model." next ".$next."\n";
 	&Log( "entering iteration loop\n" );
 
 	while( $do_iterations )
@@ -873,8 +873,6 @@ sub combineModel{
 	my $mod = $_[0];
 	my @cut_offs = @{$_[1]};
 #	my ($mod, $cut_offs) = @_;
-    print "Liz test\n";
-	print $mod->[0];
 	
 	#change the min and max GC value of cut_offs to the minGC and maxGC used by gmhmmp
 	$cut_offs[0] = $minGC;

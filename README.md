@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 07/19/2019
+Last Updated: 07/23/2019
 
 ## What is SQANTI2
 
@@ -16,6 +16,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 
 ## Updates
+
+2019.07.23 updated to version 3.3. Added CDS for GFF support and IR fix.
 
 2019.07.19 updated to version 3.2. `sqanti_qc2.py` fusion mode surpressed ORF prediction for the meantime. Minor mod to gmst to work on small input.
 
