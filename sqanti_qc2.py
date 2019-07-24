@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.3'
+__version__ = '3.4'
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -500,7 +500,7 @@ def correctionPlusORFpred(args, genome_dict):
                             if chrom not in genome_dict.keys():
                                 sys.stderr.write("\nERROR: gtf \"%s\" chromosome not found in genome reference file.\n" % (chrom))
                                 sys.exit()
-                            elif type=="exon":
+                            elif type in ('transcript', 'exon'):
                                 corrGTF_out.write(line)
             os.remove(corrGTF_tpm)
 

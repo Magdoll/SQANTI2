@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 07/23/2019
+Last Updated: 07/24/2019
 
 ## What is SQANTI2
 
@@ -19,6 +19,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2019.07.24 updated to versoin 3.4. Now `--gtf` input option works with collapsed GFF format.
 
 2019.07.23 updated to version 3.3. Added CDS for GFF support and IR fix.
 
