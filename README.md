@@ -20,6 +20,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 ## Updates
 
+2019.07.25 updated to version 3.5. Checks for Cupcake version (8.1+)
+
 2019.07.24 updated to versoin 3.4. Now `--gtf` input option works with collapsed GFF format.
 
 2019.07.23 updated to version 3.3. Added CDS for GFF support and IR fix.

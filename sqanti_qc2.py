@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.4'
+__version__ = '3.5'
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -58,6 +58,13 @@ try:
     from cupcake.io.GFF import collapseGFFReader, write_collapseGFF_format
 except ImportError:
     print >> sys.stderr, "Unable to import cupcake.tofu! Please make sure you install cupcake."
+    sys.exit(-1)
+
+# check cupcake version
+import cupcake
+v1, v2 = map(int, cupcake.__version__.split('.'))
+if v1 < 8 or v2 < 1:
+    print sys.stderr, "Cupcake version must be 8.1 or higher! Got {0} instead.".format(cupcake.__version__)
     sys.exit(-1)
 
 
