@@ -272,6 +272,15 @@ SQANTI/SQANTI2 categorizes each isoform by finding the best matching reference t
 ![sqanti_explain](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_classification.png)
 
 
+Some of the classifications have further subtypes (the `subtype`) field in SQANTI2 classification output. They are explained below.
+
+![ISM_subtype](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_ISM_subtype.png)
+
+Novel isoforms are subtyped based on whether they use a combination of known junctions (junctions are pairs of <donor>,<acceptor> sites), a combination of known splice sites (the individual donor and acceptor sites are known, but at least combination is novel), or at least one splice site (donor or acceptor) is novel. 
+
+![NIC_subtype](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_NIC_subtype.png)
+
+
 #### Classification Output Explanation
 
 The output `.classification.txt` has the following fields:

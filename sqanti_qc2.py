@@ -709,35 +709,24 @@ def STARcov_parser(coverageFiles): # just valid with unstrand-specific RNA-seq p
     return samples, cov_by_chrom_strand
 
 
+EXP_KALLISTO_HEADERS = ['target_id', 'length', 'eff_length', 'est_counts', 'tpm']
 def expression_parser(expressionFile):
+    """
+    Currently accepts expression format: Kallisto tsv
+    :param expressionFile: Kallisto tsv expression output
+    :return: dict of PBID --> TPM
+    """
+    reader = DictReader(open(expressionFile), delimiter='\t')
 
-    try:
-        p = open(expressionFile, "r")
-    except IOError:
-        sys.stderr.write('ERROR: Unable to read %s expression file\n' % expressionFile)
-        raise SystemExit(1)
-    try:
-        header = p.readline()
-        exp_dicc = {}
+    if any(k not in reader.fieldnames for k in EXP_KALLISTO_HEADERS):
+        print >> sys.stderr, "Expected Kallisto tsv file format from {0}. Abort!".format(expressionFile)
 
-        for line in p:
-            pbid = line.split()[0]
-            if len(pbid.split("|"))>2 and pbid[0:2]=="PB": # PacBio fasta header (including chained format)
-                pbid_mod = pbid.split("|")[0].split(" ")[0]
-            elif len(pbid.split("|"))>4: # Refseq fasta header
-                pbid_mod = pbid.split("|")[3]
-            else:
-                pbid_mod = pbid.split()[0] # Ensembl fasta header
-            mean = sum([float(i) for i in line.rstrip().split()[1:]])/len(line.rstrip().split()[1:])
-            exp_dicc[pbid_mod] = mean
-        p.close()
+    exp_dict = {}
 
-    except IOError:
-        sys.stderr.write('File %s without expression matrix format' % expressionFile)
-        raise SystemExit(1)
+    for r in reader:
+        exp_dict[r['target_id']] = float(r['tpm'])
 
-    return(exp_dicc)
-
+    return exp_dict
 
 
 def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends_by_gene, trec, genome_dict, nPolyA):
@@ -1356,24 +1345,6 @@ def run(args):
         indelsJunc = None
         indelsTotal = None
 
-    # if both corrSAM and orfDict is NOT empty, we can try to do NMD prediction now
-#    if args.gtf:
-#        print >> sys.stderr, "WARNING: SQANTI2 run with GTF input. No NMD prediction will be done!"
-#    else:
-#        for r in GMAPSAMReader(corrSAM, True):
-#            if r.qID in orfDict:
-#                try:
-#                    m = cordmap.get_base_to_base_mapping_from_sam(r.segments, r.cigar, r.qStart, r.qEnd, r.flag.strand, True)
-#                    orfDict[r.qID].cds_genomic_start = m[orfDict[r.qID].cds_start][0]
-#                    orfDict[r.qID].cds_genomic_end = m[orfDict[r.qID].cds_end-1][0]
-#                    if r.flag.strand == '-': orfDict[r.qID].cds_genomic_start += 3
-#                except:
-#                    pdb.set_trace()
-#                    orfDict[r.qID].cds_genomic_start = None
-#                    orfDict[r.qID].cds_genomic_end = None
-#                    print >> sys.stderr, "WARNING: Issue with {0} SAM alignment. No NMD prediction will be done for {0}.".format(r.qID)
-
-
     # isoform classification + intra-priming + id and junction characterization
     isoforms_info = isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc, orfDict)
 
@@ -1396,19 +1367,12 @@ def run(args):
         else:
             isoforms_info[pbid].RT_switching = "FALSE"
 
-    # ORF information
-#    for pbid in orfDict:
-#        if pbid in isoforms_info:
-#            isoforms_info[pbid].coding = "coding"
-#            isoforms_info[pbid].ORFlen = orfDict[pbid].orf_length
-#            isoforms_info[pbid].CDS_start = orfDict[pbid].cds_start
-#            isoforms_info[pbid].CDS_end = orfDict[pbid].cds_end
 
     ## FSM classification
-    geneFSM_dicc = defaultdict(lambda: [])
+    geneFSM_dict = defaultdict(lambda: [])
     for iso in isoforms_info:
         gene = isoforms_info[iso].geneName()  # if multi-gene, returns "geneA_geneB_geneC..."
-        geneFSM_dicc[gene].append(isoforms_info[iso].str_class)
+        geneFSM_dict[gene].append(isoforms_info[iso].str_class)
 
     ## FL count file
     if args.fl_count:
@@ -1431,36 +1395,34 @@ def run(args):
 
 
     ## Isoform expression information
-    # ToDo: to look over this section later. Ignore now.
     if args.expression:
-        sys.stdout.write("\n**** Reading Isoform Expression Information.\n")
-        exp_dicc = expression_parser(args.expression)
-        geneExp_dicc = {}
+        print >> sys.stderr, "**** Reading Isoform Expression Information."
+        exp_dict = expression_parser(args.expression)
+        gene_exp_dict = {}
         for iso in isoforms_info:
-            if iso not in exp_dicc:
-                exp_dicc[iso] = 0
-                sys.stdout.write("\nIsoform %s not found in expression matrix. Nule expression associated.\n" %(iso))
+            if iso not in exp_dict:
+                exp_dict[iso] = 0
+                print >> sys.stderr, "WARNING: isoform {0} not found in expression matrix. Assigning TPM of 0.".format(iso)
             gene = isoforms_info[iso].geneName()
-            if gene not in geneExp_dicc:
-                geneExp_dicc[gene] = exp_dicc[iso]
+            if gene not in gene_exp_dict:
+                gene_exp_dict[gene] = exp_dict[iso]
             else:
-                geneExp_dicc[gene] = geneExp_dicc[gene]+exp_dicc[iso]
+                gene_exp_dict[gene] = gene_exp_dict[gene]+exp_dict[iso]
     else:
-        exp_dicc = None
-        geneExp_dicc = None
-        sys.stdout.write("\nIsoforms expression files not provided.\n")
+        exp_dict = None
+        gene_exp_dict = None
+        print >> sys.stderr, "Isoforms expression files not provided."
 
 
-    # ToDo: to look over this section later. Ignore now.
     ## Adding indel, FSM class and expression information
     for iso in isoforms_info:
         gene = isoforms_info[iso].geneName()
-        if exp_dicc!=None and geneExp_dicc!=None:
-            isoforms_info[iso].geneExp = geneExp_dicc[gene]
-            isoforms_info[iso].isoExp = exp_dicc[iso]
-        if len(geneFSM_dicc[gene])==1:
+        if exp_dict is not None and gene_exp_dict is not None:
+            isoforms_info[iso].geneExp = gene_exp_dict[gene]
+            isoforms_info[iso].isoExp  = exp_dict[iso]
+        if len(geneFSM_dict[gene])==1:
             isoforms_info[iso].FSM_class = "A"
-        elif "full-splice_match" in geneFSM_dicc[gene]:
+        elif "full-splice_match" in geneFSM_dict[gene]:
             isoforms_info[iso].FSM_class = "C"
         else:
             isoforms_info[iso].FSM_class = "B"
@@ -1646,7 +1608,7 @@ def main():
     parser.add_argument("--skipORF", default=False, action="store_true", help="\t\tSkip ORF prediction (to save time)")
     parser.add_argument("--is_fusion", default=False, action="store_true", help="\t\tInput are fusion isoforms")
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
-    parser.add_argument('-e','--expression', help='\t\tExpression matrix', required=False)
+    parser.add_argument('-e','--expression', help='\t\tExpression matrix (supported: Kallisto tsv)', required=False)
     parser.add_argument('-x','--gmap_index', help='\t\tPath and prefix of the reference index created by gmap_build. Mandatory if using GMAP unless -g option is specified.')
     parser.add_argument('-t', '--gmap_threads', help='\t\tNumber of threads used during alignment by aligners.', required=False, default="1", type=int)
     #parser.add_argument('-z', '--sense', help='\t\tOption that helps aligners know that the exons in you cDNA sequences are in the correct sense. Applicable just when you have a high quality set of cDNA sequences', required=False, action='store_true')
@@ -1665,9 +1627,10 @@ def main():
         print >> sys.stderr, "WARNING: Currently if --is_fusion is used, no ORFs will be predicted."
         args.skipORF = True
 
-    if args.expression:
-        print >> sys.stderr, "--expression option currently not supported."
-        sys.exit(-1)
+    if args.expression is not None:
+        if not os.path.exists(args.expression):
+            print >> sys.stderr, "Expression file {0} not found. Abort!".format(args.expression)
+            sys.exit(-1)
 
     # path and prefix for output files
     if args.output is None:
