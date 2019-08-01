@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.6'
+__version__ = '3.7'
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -708,23 +708,29 @@ def STARcov_parser(coverageFiles): # just valid with unstrand-specific RNA-seq p
 
     return samples, cov_by_chrom_strand
 
-
 EXP_KALLISTO_HEADERS = ['target_id', 'length', 'eff_length', 'est_counts', 'tpm']
+EXP_RSEM_HEADERS = ['transcript_id', 'length', 'effective_length', 'expected_count', 'TPM']
 def expression_parser(expressionFile):
     """
-    Currently accepts expression format: Kallisto tsv
-    :param expressionFile: Kallisto tsv expression output
+    Currently accepts expression format: Kallisto or RSEM
+    :param expressionFile: Kallisto or RSEM
     :return: dict of PBID --> TPM
     """
     reader = DictReader(open(expressionFile), delimiter='\t')
 
-    if any(k not in reader.fieldnames for k in EXP_KALLISTO_HEADERS):
-        print >> sys.stderr, "Expected Kallisto tsv file format from {0}. Abort!".format(expressionFile)
+    if all(k in reader.fieldnames for k in EXP_KALLISTO_HEADERS):
+        print >> sys.stderr, "Detected Kallisto expression format. Using 'target_id' and 'tpm' field."
+        name_id, name_tpm = 'target_id', 'tpm'
+    elif all(k in reader.fieldnames for k in EXP_RSEM_HEADERS):
+        print >> sys.stderr, "Detected RSEM expression format. Using 'transcript_id' and 'TPM' field."
+        name_id, name_tpm = 'transcript_id', 'TPM'
+    else:
+        print >> sys.stderr, "Expected Kallisto or RSEM file format from {0}. Abort!".format(expressionFile)
 
     exp_dict = {}
 
     for r in reader:
-        exp_dict[r['target_id']] = float(r['tpm'])
+        exp_dict[r[name_id]] = float(r[name_tpm])
 
     return exp_dict
 
@@ -1308,7 +1314,19 @@ def find_polyA_motif(genome_seq, polyA_motif_list):
 
 def FLcount_parser(fl_count_filename):
     fl_count_dict = {}
-    d, count_header = read_count_file(fl_count_filename)
+
+    f = open(fl_count_filename)
+    while True:
+        cur_pos = f.tell()
+        line = f.readline()
+        if not line.startswith('#'):
+            f.seek(cur_pos)
+            break
+    reader = DictReader(f, delimiter='\t')
+    d = dict((r['pbid'], r) for r in reader)
+    count_header = reader.fieldnames
+    f.close()
+
     if 'count_fl' not in count_header:
         print >> sys.stderr, "Expected `count_fl` field in count file {0}. Abort!".format(fl_count_filename)
         sys.exit(-1)
@@ -1485,11 +1503,14 @@ def run(args):
 
     print >> sys.stderr, "**** Writing output files...."
 
+    # sort isoform keys
+    iso_keys = isoforms_info.keys()
+    iso_keys.sort(key=lambda x: (isoforms_info[x].chrom,isoforms_info[x].id))
     with open(outputClassPath, 'w') as h:
         fout_class = DictWriter(h, fieldnames=FIELDS_CLASS, delimiter='\t')
         fout_class.writeheader()
-        for r in isoforms_info.itervalues():
-            fout_class.writerow(r.as_dict())
+        for iso_key in iso_keys:
+            fout_class.writerow(isoforms_info[iso_key].as_dict())
 
     # Now that RTS info is obtained, we can write the final junctions.txt
     with open(outputJuncPath, 'w') as h:

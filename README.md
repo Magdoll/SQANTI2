@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 07/26/2019
+Last Updated: 08/01/2019
 
 ## What is SQANTI2
 
@@ -19,6 +19,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2019.08.01 updated to version 3.7. `--expression` supports RSEM and Kallisto output. Expression and polyA motifs added to PDF plots.
 
 2019.07.26 updated to version 3.6. `--fl_count` is supported again!
 

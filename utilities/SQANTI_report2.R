@@ -66,13 +66,13 @@ library(dplyr)
 data.class = read.table(class.file, header=T, as.is=T, sep="\t")
 rownames(data.class) <- data.class$isoform
 
-# ToDO: deal with expression data later
-if (!all(is.na(data.class$iso_exp))){
-  sorted <- data.class[order(data.class$iso_exp, decreasing = T),]
-  FSMhighestExpIsoPerGene <- sorted[(!duplicated(sorted$associated_gene) & sorted$structural_category=="full-splice_match"),"isoform"]
-  data.class[which(data.class$isoform%in%FSMhighestExpIsoPerGene),"RTS_stage"] <- FALSE
-  write.table(data.class, file=class.file, row.names=FALSE, quote=F, sep="\t")
-}
+# (Liz) not sorting by expression
+#if (!all(is.na(data.class$iso_exp))){
+#  sorted <- data.class[order(data.class$iso_exp, decreasing = T),]
+#  FSMhighestExpIsoPerGene <- sorted[(!duplicated(sorted$associated_gene) & sorted$structural_category=="full-splice_match"),"isoform"]
+#  data.class[which(data.class$isoform%in%FSMhighestExpIsoPerGene),"RTS_stage"] <- FALSE
+#  write.table(data.class, file=class.file, row.names=FALSE, quote=F, sep="\t")
+#}
 
 xaxislevelsF1 <- c("full-splice_match","incomplete-splice_match","novel_in_catalog","novel_not_in_catalog", "genic","antisense","fusion","intergenic","genic_intron");
 xaxislabelsF1 <- c("FSM", "ISM", "NIC", "NNC", "Genic\nGenomic",  "Antisense", "Fusion","Intergenic", "Genic\nIntron")
@@ -93,11 +93,11 @@ data.ISM <- subset(data.class, (structural_category=="ISM" & exons>1))
 
 data.junction <- read.table(junc.file, header=T, as.is=T, sep="\t")
 
-# ToDO: deal with expression data later
-if (!all(is.na(data.class$iso_exp))){
-  data.junction[which(data.junction$isoform%in%FSMhighestExpIsoPerGene),"RTS_junction"] <- FALSE
-  write.table(data.junction, file=junc.file, row.names=FALSE, quote=F, sep="\t")
-}
+# (Liz) don't sort junction file by expression
+#if (!all(is.na(data.class$iso_exp))){
+#  data.junction[which(data.junction$isoform%in%FSMhighestExpIsoPerGene),"RTS_junction"] <- FALSE
+#  write.table(data.junction, file=junc.file, row.names=FALSE, quote=F, sep="\t")
+#}
 
 # make a unique identifier using chrom_strand_start_end
 data.junction$junctionLabel = with(data.junction, paste(chrom, strand, genomic_start_coord, genomic_end_coord, sep="_"))
@@ -275,14 +275,14 @@ p1 <- ggplot(data=data.class, aes(x=structural_category)) +
 
 if (nrow(data.FSMISM) > 0) {
 
-  p2 <- ggplot(data=data.FSMISM, aes(x=structural_category, y=ref_length, fill=structural_category)) +
+  p2 <- ggplot(data=data.FSMISM, aes(x=structural_category, y=ref_length/1000, fill=structural_category)) +
     geom_boxplot(color="black", size=0.3, outlier.size = 0.2) + mytheme +
     scale_fill_manual(values = myPalette) +
     scale_x_discrete(drop = TRUE) +
     guides(fill=FALSE) +
     xlab("") +  
-    ylab("Matched reference length (bp)") +
-    labs(title="Length distribution of matched reference transcripts\n\n\n",  
+    ylab("Matched Reference Length (in kb)") +
+    labs(title="Length Distribution of Matched Reference Transcripts\n\n\n",
          subtitle="Applicable only to FSM and ISM categories\n\n")
 
   p3 <- ggplot(data=data.FSMISM, aes(x=structural_category, y=ref_exons, fill=structural_category)) +
@@ -293,7 +293,7 @@ if (nrow(data.FSMISM) > 0) {
     scale_fill_manual(values = myPalette) +
     guides(fill=FALSE) +
     mytheme +
-    labs(title="Exon number distribution of matched reference transcripts\n\n\n",  
+    labs(title="Exon Count Distribution of Matched Reference Transcripts\n\n\n",
          subtitle="Applicable only to FSM and ISM categories\n\n")
 
 }
@@ -345,8 +345,6 @@ p6 <- ggplot(data=data.class, aes(x=novelGene)) +
 
 ##**** PLOT  absolute and normalized % of different categories with increasing transcript length
 # requires use of dplyr package
-
-
 data.class$lenCat <- as.factor(as.integer(data.class$length %/% 1000))
 data.class.byLen <- data.class %>% group_by(lenCat, structural_category) %>% summarise(count=n()) %>% mutate(perc=count/sum(count))
 data.class.byLen$structural_category <- factor(data.class.byLen$structural_category, levels=rev(xaxislabelsF1), order=TRUE)
@@ -362,120 +360,106 @@ p.classByLen.b <- ggplot(data.class.byLen, aes(x=lenCat, y=perc*100, fill=factor
 
 
 
-# ToDO: deal with expression data later
-##**** PLOT 8: Expression, if isoform expression provided
-
+##**** PLOT 8: Expression, if isoform expression provided (iso_exp is in TPM)
 if (!all(is.na(data.class$iso_exp))){
-  
   p8 <- ggplot(data=data.class, aes(x=structural_category, y=log2(iso_exp+1), fill=structural_category)) +
-    geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
+    geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
     scale_x_discrete(drop=FALSE) +
-    ylab("log2(transcript expression +1)") +
+    ylab("log2(TPM+1)") +
     scale_fill_manual(values = myPalette) +
     guides(fill=FALSE) +
     mytheme  + theme(axis.text.x = element_text(angle = 45)) + 
     theme(axis.text.x  = element_text(margin=margin(17,0,0,0), size=12))+
-    theme(axis.title.x=element_blank()) + 
-    #theme(plot.margin = unit(c(1.5,1,0,1), "cm")) +
-    ggtitle("Transcript expression by structural category\n\n" )
-
+    theme(axis.title.x=element_blank()) +
+    ggtitle("Transcript Expression by Structural Category\n\n" )
 }
 
 
-# ToDO: deal with expression data later
 # PLOT 9: FL number, if FL count provided
-
+# convert FL count to TPM
 if (!all(is.na(data.class$FL))){
-  
-  p9 <- ggplot(data=data.class, aes(x=structural_category, y=log2(FL+1), fill=structural_category)) +
-    geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
-    ylab("log2( # FL reads + 1)") +
+    total_fl <- sum(data.class$FL, na.rm=T)
+    data.class$FL_TPM <- data.class$FL*(10**6)/total_fl
+
+    p9 <- ggplot(data=data.class, aes(x=structural_category, y=log2(FL_TPM+1), fill=structural_category)) +
+    geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
+    ylab("log2(FL_TPM+1)") +
     scale_x_discrete(drop=FALSE) +
     scale_fill_manual(values = myPalette) +
     guides(fill=FALSE) +
     mytheme +
     theme(axis.text.x = element_text(angle = 45)) + 
     theme(axis.text.x  = element_text(margin=margin(17,0,0,0), size=12))+
-    theme(axis.title.x=element_blank()) + 
-    #theme(plot.margin = unit(c(1.5,1,0,1), "cm")) +
-    ggtitle("Number of FL reads per transcript by structural category\n\n" )
-  
+    theme(axis.title.x=element_blank()) +
+    ggtitle("FL Count (normalized) by Structural Category\n\n" )
 }
 
-# ToDO: deal with expression data later
+
 # PLOT 10: Gene Expression, if expresion provided
-
 if (!all(is.na(data.class$iso_exp))){
-
   p10 <- ggplot(data=isoPerGene, aes(x=novelGene, y=log2(geneExp+1), fill=novelGene)) +
     geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
     scale_x_discrete(drop=FALSE) +
     xlab("Structural Classification") +  
-    ylab("log2( # Short reads + 1)") +
+    ylab("log2(Gene_TPM+1)") +
     scale_fill_manual(values = myPalette[c(3:4)]) +
     guides(fill=FALSE) +
     mytheme +
-    theme(axis.title.x=element_blank()) + 
-    #theme(plot.margin = unit(c(1.5,1,0.5,1), "cm")) +
-    ggtitle("Gene expression by type of gene annotation\n\n" )
+    theme(axis.title.x=element_blank()) +
+    ggtitle("Gene Expression, Annotated vs Novel\n\n" )
 }
 
 
-# ToDO: deal with expression data later
 # PLOT 11: Gene FL number, if FL count provided
-
 if (!all(is.na(data.class$FL))){
-  
-  FL_gene = aggregate(as.integer(data.class$FL), by = list("associatedGene" = data.class$associated_gene), sum)
-  colnames(FL_gene)[ncol(FL_gene)] <- "FL_gene"
-  isoPerGene = merge(isoPerGene, FL_gene, by="associatedGene")
-  
-  p11 <- ggplot(data=isoPerGene, aes(x=novelGene, y=log2(FL_gene+1), fill=novelGene)) +
+    FL_gene <- aggregate(as.integer(data.class$FL), by = list("associatedGene" = data.class$associated_gene), sum)
+    colnames(FL_gene)[ncol(FL_gene)] <- "FL_gene"
+    isoPerGene <- merge(isoPerGene, FL_gene, by="associatedGene")
+    isoPerGene$FL_gene_TPM <- isoPerGene$FL_gene*(10**6)/total_fl
+
+    p11 <- ggplot(data=isoPerGene, aes(x=novelGene, y=log2(FL_gene_TPM+1), fill=novelGene)) +
     geom_boxplot(color="black", size=0.3,outlier.size = 0.2) +
     scale_x_discrete(drop=FALSE) +
-    ylab("log2( # FL reads + 1)") +
+    ylab("log2(FL_TPM+1)") +
     scale_fill_manual(values = myPalette[c(3:4)]) +
     guides(fill=FALSE) +
     mytheme +
-    theme(axis.title.x=element_blank()) + 
-    #theme(plot.margin = unit(c(1.5,1,0.5,1), "cm")) +
+    theme(axis.title.x=element_blank()) +
     ggtitle("Number of FL reads per Gene by type of gene annotation\n\n" )
   
 }
 
 
-# ToDO: deal with expression data later
-# PLOT 12: NNC expression genes vs not NNC expression genes
 
+# PLOT 12: NNC expression genes vs not NNC expression genes
 # NNC expression genes vs not NNC expression genes
 
-
 if (!all(is.na(data.class$gene_exp))){
-  
   if (nrow(data.class[data.class$structural_category=="NNC",])!=0){
     
-    NNC_genes = unique(data.class[data.class$structural_category=="NNC","associated_gene"])
-    notNNC_genes = unique(data.class[!data.class$associated_gene%in%NNC_genes,"associated_gene"])
-    isoPerGene[isoPerGene$associatedGene %in% notNNC_genes, "NNC_class"] <- "Genes not expressing\n NNC isoforms"
-    isoPerGene[isoPerGene$associatedGene %in% NNC_genes, "NNC_class"] <- "Genes expressing\n NNC isoforms"
+    NNC_genes <- unique(data.class[data.class$structural_category=="NNC","associated_gene"])
+    notNNC_genes <- unique(data.class[!data.class$associated_gene%in%NNC_genes,"associated_gene"])
+    isoPerGene[isoPerGene$associatedGene %in% notNNC_genes, "NNC_class"] <- "Genes without\n NNC isoforms"
+    isoPerGene[isoPerGene$associatedGene %in% NNC_genes, "NNC_class"] <- "Genes with\n NNC isoforms"
     
-    isoPerGene$NNC_class = factor(isoPerGene$NNC_class, levels=c("Genes expressing\n NNC isoforms","Genes not expressing\n NNC isoforms"),
-                            labels=c("Genes expressing\n NNC isoforms","Genes not expressing\n NNC isoforms"), order=T)
+    isoPerGene$NNC_class <- factor(isoPerGene$NNC_class, levels=c("Genes with\n NNC isoforms","Genes without\n NNC isoforms"),
+                            labels=c("Genes with\n NNC isoforms","Genes without\n NNC isoforms"), order=T)
     
     p12 <- ggplot(data=isoPerGene[!is.na(isoPerGene$NNC_class),], aes(x=NNC_class, y=log2(geneExp+1), fill=NNC_class)) +
-      geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
+      geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
       xlab("") +  
-      ylab("log2(# Short reads per gene + 1)") +
+      ylab("log2(Gene_TPM+1)") +
       scale_x_discrete(drop=FALSE) +
       scale_fill_manual(values = c(myPalette[4],"grey38")) +
       guides(fill=FALSE) +
       mytheme +
       theme(axis.title.x=element_blank()) + 
-      ggtitle("Gene expression levels between NNC and not NNC containing genes\n\n" ) 
+      ggtitle("Gene Expression between NNC and not NNC containing Genes\n\n" )
     }
 }
 
 # ToDO: deal with expression data later
+# (Liz) not plotting p13, p13.c for now
 # PLOT 13: Genes expression to only FSM Genes, only NNC Genes and both containing genes
 
 if (!all(is.na(data.class$gene_exp))){
@@ -876,6 +860,11 @@ if (nrow(data.ISM) > 0) {
 }
 
 
+p.polyA_dist <- ggplot(data.class, aes(x=polyA_dist, color=structural_category)) +
+    geom_freqpoly(binwidth=1) +
+    xlab("Distance of polyA motif from 3' end (bp)") +
+    ylab("Count") +
+    labs(title="Distance of detected polyA motif from 3' end")
 
 # PLOT p28: Attribute summary if junctions
 
@@ -987,13 +976,13 @@ pdf(file=report.file, width = 6.5, height = 6.5)
 
 #cover
 grid.newpage()
-cover <- textGrob("SQANTI report",
-                  gp=gpar(fontface="italic", fontsize=40, col="orangered"))
+cover <- textGrob("SQANTI2 report",
+    gp=gpar(fontface="italic", fontsize=40, col="orangered"))
 grid.draw(cover)
 
 # TABLE 1: Number of isoforms in each structural category
 
-freqCat = as.data.frame(table(data.class$structural_category))
+freqCat <- as.data.frame(table(data.class$structural_category))
 #freqCat$ranking = order(freqCat$Freq,decreasing = T)
 table1 <- tableGrob(freqCat, rows = NULL, cols = c("Category","# Isoforms"))
 title1 <- textGrob("Characterization of transcripts\n based on splice junctions", gp=gpar(fontface="italic", fontsize=17), vjust = -3.5)
@@ -1029,6 +1018,7 @@ gt4 <- textGrob(sn, gp=gpar(fontface="italic", fontsize=17), vjust = 0)
 # Plot Table 1 and Table 2
 grid.arrange(gt4,gt2,gt3,gt1, layout_matrix = cbind(c(1,2,3),c(1,4,4)))
 
+
 s <- textGrob("Gene Characterization", gp=gpar(fontface="italic", fontsize=17), vjust = 0)
 grid.arrange(s)
 print(p0)
@@ -1037,13 +1027,12 @@ print(p6)
 print(p.classByLen.a)
 print(p.classByLen.b)
 
-# if (!all(is.na(data.class$iso_exp))){
-#   print(p10)
-# }
-# if (!all(is.na(data.class$FL))){
-#   print(p11)
-# }
-
+if (!all(is.na(data.class$iso_exp))){
+   print(p10)
+}
+if (!all(is.na(data.class$FL))){
+   print(p11)
+}
 
 # PLOT length of isoforms
 # p.length.all: length of all isoforms, regardless of category
@@ -1059,31 +1048,31 @@ grid.arrange(s)
 print(p1)
 print(p4)
 print(p5)
-# if (!all(is.na(data.class$iso_exp))){
-#   print(p8)
-# }
-# if (!all(is.na(data.class$FL))){
-#   print(p9)
-# }
+if (!all(is.na(data.class$iso_exp))){
+    print(p8)
+}
+if (!all(is.na(data.class$FL))){
+    print(p9)
+}
 
 #
 if (nrow(data.FSM) > 0 ) {
     print(p2)
     print(p3)
 }
-# if (!all(is.na(data.class$gene_exp))){
-#   if (nrow(data.class[data.class$structural_category=="NNC",])!=0){
-#     print(p12)
-#   }
-# }
-# if (!all(is.na(data.class$gene_exp))){
-#   if (nrow(data.class[data.class$structural_category=="NNC",])!=0 & nrow(data.class[data.class$structural_category=="FSM",])!=0 ){
-#     print(p13)
-#     print(p13.c)
-#   }
-# }
-#
-#
+if (!all(is.na(data.class$gene_exp))){
+   if (nrow(data.class[data.class$structural_category=="NNC",])!=0){
+     print(p12)
+   }
+}
+#if (!all(is.na(data.class$gene_exp))){
+#    if (nrow(data.class[data.class$structural_category=="NNC",])!=0 & nrow(data.class[data.class$structural_category=="FSM",])!=0 ){]
+#        print(p13)
+#        print(p13.c)
+#    }
+#}
+
+
 #3. splice junction
 
 s <- textGrob("Splice Junction Characterization", gp=gpar(fontface="italic", fontsize=17), vjust = 0)
@@ -1125,6 +1114,29 @@ if (nrow(data.ISM) > 0) {
     print(p22.dist5.ISM.a)
     print(p22.dist5.ISM.b)
 }
+
+print(p.polyA_dist)
+
+# PLOT polyA motif ranking, distance from 3' end
+df.polyA <- as.data.frame(group_by(data.class, by=structural_category) %>%
+            summarise(count=n(),
+                      polyA_detected=sum(!is.na(polyA_motif)),
+                      polyA_detected_perc=round(polyA_detected*100/count)))
+
+table.polyA <- tableGrob(df.polyA, rows = NULL, cols = c("Category","Count","polyA\nDetected","%"))
+title.polyA <- textGrob("Number of polyA Motifs Detected", gp=gpar(fontface="italic", fontsize=15), vjust=-10)
+gt.polyA <- gTree(children=gList(table.polyA, title.polyA))
+
+
+df.polyA_freq <- as.data.frame(sort(table(data.class$polyA_motif),decreasing=T))
+df.polyA_freq$perc <- round(df.polyA_freq$Freq*100/sum(df.polyA_freq$Freq),1)
+table.polyA_freq <- tableGrob(df.polyA_freq, rows = NULL, cols = c("Motif", "Count", "%"))
+title.polyA_freq <- textGrob("Frequency of polyA motifs", gp=gpar(fontface="italic", fontsize=15), vjust=-18)
+gt.polyA_freq <- gTree(children=gList(title.polyA_freq, table.polyA_freq))
+
+grid.arrange(gt.polyA, gt.polyA_freq, ncol=2)
+
+
 
 s <- textGrob("Intra-Priming Quality Check", gp=gpar(fontface="italic", fontsize=17), vjust = 0)
 grid.arrange(s)
