@@ -192,6 +192,10 @@ isoPerGene$novelGene = factor(isoPerGene$novelGene,
 isoPerGene$nIsoCat =cut(isoPerGene$nIso, breaks = c(0,1,3,5,max(isoPerGene$nIso)+1), labels = c("1", "2-3", "4-5", ">=6"))
 
 
+if (!all(is.na(data.class$FL))){
+    total_fl <- sum(data.class$FL, na.rm=T)
+    data.class$FL_TPM <- data.class$FL*(10**6)/total_fl
+}
 
 # PLOT length of isoforms
 # p.length.all: length of all isoforms, regardless of category
@@ -378,8 +382,8 @@ if (!all(is.na(data.class$iso_exp))){
 # PLOT 9: FL number, if FL count provided
 # convert FL count to TPM
 if (!all(is.na(data.class$FL))){
-    total_fl <- sum(data.class$FL, na.rm=T)
-    data.class$FL_TPM <- data.class$FL*(10**6)/total_fl
+#    total_fl <- sum(data.class$FL, na.rm=T)
+#    data.class$FL_TPM <- data.class$FL*(10**6)/total_fl
 
     p9 <- ggplot(data=data.class, aes(x=structural_category, y=log2(FL_TPM+1), fill=structural_category)) +
     geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
@@ -860,11 +864,13 @@ if (nrow(data.ISM) > 0) {
 }
 
 
+if (sum(!is.na(data.class$polyA_dist)) > 10) {
 p.polyA_dist <- ggplot(data.class, aes(x=polyA_dist, color=structural_category)) +
     geom_freqpoly(binwidth=1) +
     xlab("Distance of polyA motif from 3' end (bp)") +
     ylab("Count") +
     labs(title="Distance of detected polyA motif from 3' end")
+}
 
 # PLOT p28: Attribute summary if junctions
 
@@ -1115,27 +1121,28 @@ if (nrow(data.ISM) > 0) {
     print(p22.dist5.ISM.b)
 }
 
-print(p.polyA_dist)
+if (sum(!is.na(data.class$polyA_dist)) > 10) {
+    print(p.polyA_dist)
 
-# PLOT polyA motif ranking, distance from 3' end
-df.polyA <- as.data.frame(group_by(data.class, by=structural_category) %>%
-            summarise(count=n(),
-                      polyA_detected=sum(!is.na(polyA_motif)),
-                      polyA_detected_perc=round(polyA_detected*100/count)))
+    # PLOT polyA motif ranking, distance from 3' end
+    df.polyA <- as.data.frame(group_by(data.class, by=structural_category) %>%
+                summarise(count=n(),
+                          polyA_detected=sum(!is.na(polyA_motif)),
+                          polyA_detected_perc=round(polyA_detected*100/count)))
 
-table.polyA <- tableGrob(df.polyA, rows = NULL, cols = c("Category","Count","polyA\nDetected","%"))
-title.polyA <- textGrob("Number of polyA Motifs Detected", gp=gpar(fontface="italic", fontsize=15), vjust=-10)
-gt.polyA <- gTree(children=gList(table.polyA, title.polyA))
+    table.polyA <- tableGrob(df.polyA, rows = NULL, cols = c("Category","Count","polyA\nDetected","%"))
+    title.polyA <- textGrob("Number of polyA Motifs Detected", gp=gpar(fontface="italic", fontsize=15), vjust=-10)
+    gt.polyA <- gTree(children=gList(table.polyA, title.polyA))
 
 
-df.polyA_freq <- as.data.frame(sort(table(data.class$polyA_motif),decreasing=T))
-df.polyA_freq$perc <- round(df.polyA_freq$Freq*100/sum(df.polyA_freq$Freq),1)
-table.polyA_freq <- tableGrob(df.polyA_freq, rows = NULL, cols = c("Motif", "Count", "%"))
-title.polyA_freq <- textGrob("Frequency of polyA motifs", gp=gpar(fontface="italic", fontsize=15), vjust=-18)
-gt.polyA_freq <- gTree(children=gList(title.polyA_freq, table.polyA_freq))
+    df.polyA_freq <- as.data.frame(sort(table(data.class$polyA_motif),decreasing=T))
+    df.polyA_freq$perc <- round(df.polyA_freq$Freq*100/sum(df.polyA_freq$Freq),1)
+    table.polyA_freq <- tableGrob(df.polyA_freq, rows = NULL, cols = c("Motif", "Count", "%"))
+    title.polyA_freq <- textGrob("Frequency of polyA motifs", gp=gpar(fontface="italic", fontsize=15), vjust=-18)
+    gt.polyA_freq <- gTree(children=gList(title.polyA_freq, table.polyA_freq))
 
-grid.arrange(gt.polyA, gt.polyA_freq, ncol=2)
-
+    grid.arrange(gt.polyA, gt.polyA_freq, ncol=2)
+}
 
 
 s <- textGrob("Intra-Priming Quality Check", gp=gpar(fontface="italic", fontsize=17), vjust = 0)

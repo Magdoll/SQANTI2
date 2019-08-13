@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.7'
+__version__ = '3.8'
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -204,7 +204,7 @@ class myQueryTranscripts:
     def __init__(self, id, tss_diff, tts_diff, num_exons, length, str_class, subtype=None,
                  genes=None, transcripts=None, chrom=None, strand=None, bite ="NA",
                  RT_switching ="????", canonical="NA", min_cov ="NA",
-                 min_cov_pos ="NA", min_samp_cov="NA", sd ="NA", FL ="NA",
+                 min_cov_pos ="NA", min_samp_cov="NA", sd ="NA", FL ="NA", FL_dict={},
                  nIndels ="NA", nIndelsJunc ="NA", proteinID=None,
                  ORFlen="NA", CDS_start="NA", CDS_end="NA",
                  CDS_genomic_start="NA", CDS_genomic_end="NA", is_NMD="NA",
@@ -242,7 +242,8 @@ class myQueryTranscripts:
         self.CDS_genomic_start = CDS_genomic_start  # 1-based genomic coordinate of CDS start - strand aware
         self.CDS_genomic_end = CDS_genomic_end      # 1-based genomic coordinate of CDS end - strand aware
         self.is_NMD      = is_NMD                   # (TRUE,FALSE) for NMD if is coding, otherwise "NA"
-        self.FL          = FL
+        self.FL          = FL                       # count for a single sample
+        self.FL_dict     = FL_dict                  # dict of sample -> FL count
         self.nIndels     = nIndels
         self.nIndelsJunc = nIndelsJunc
         self.isoExp      = isoExp
@@ -308,7 +309,7 @@ class myQueryTranscripts:
 
 
     def as_dict(self):
-        return {'isoform': self.id,
+        d = {'isoform': self.id,
          'chrom': self.chrom,
          'strand': self.strand,
          'length': self.length,
@@ -351,6 +352,9 @@ class myQueryTranscripts:
          'polyA_motif': self.polyA_motif,
          'polyA_dist': self.polyA_dist
          }
+        for sample,count in self.FL_dict.iteritems():
+            d["FL."+sample] = count
+        return d
 
 class myQueryProteins:
 
@@ -1313,7 +1317,16 @@ def find_polyA_motif(genome_seq, polyA_motif_list):
     return 'NA', 'NA'
 
 def FLcount_parser(fl_count_filename):
+    """
+    :param fl_count_filename: could be a single sample or multi-sample (chained) count file
+    :return: list of samples, <dict>
+
+    If single sample, returns True, dict of {pbid} -> {count}
+    If multiple sample, returns False, dict of {pbid} -> {sample} -> {count}
+    """
     fl_count_dict = {}
+    samples = ['NA']
+    flag_single_sample = True
 
     f = open(fl_count_filename)
     while True:
@@ -1323,17 +1336,35 @@ def FLcount_parser(fl_count_filename):
             f.seek(cur_pos)
             break
     reader = DictReader(f, delimiter='\t')
-    d = dict((r['pbid'], r) for r in reader)
     count_header = reader.fieldnames
+    if 'pbid' in reader.fieldnames: # single sample
+        if 'count_fl' not in count_header:
+            print >> sys.stderr, "Expected `count_fl` field in count file {0}. Abort!".format(fl_count_filename)
+            sys.exit(-1)
+        d = dict((r['pbid'], r) for r in reader)
+    elif 'superPBID' in reader.fieldnames: # multi sample from chaining or demux
+        d = dict((r['superPBID'], r) for r in reader)
+        flag_single_sample = False
+    else:
+        print >> sys.stderr, "Expected pbid or superPBID as a column in count file {0}. Abort!".format(fl_count_filename)
+        sys.exit(-1)
     f.close()
 
-    if 'count_fl' not in count_header:
-        print >> sys.stderr, "Expected `count_fl` field in count file {0}. Abort!".format(fl_count_filename)
-        sys.exit(-1)
 
-    for k,v in d.iteritems():
-        fl_count_dict[k] = int(v['count_fl'])
-    return fl_count_dict
+    if flag_single_sample: # single sample
+        for k,v in d.iteritems():
+            fl_count_dict[k] = int(v['count_fl'])
+    else: # multi-sample
+        for k,v in d.iteritems():
+            fl_count_dict[k] = {}
+            samples = v.keys()
+            for sample,count in v.iteritems():
+                if sample!='superPBID':
+                    fl_count_dict[k][sample] = int(count) if count!='NA' else 0
+
+    samples.sort()
+    samples.remove('superPBID')
+    return samples, fl_count_dict
 
 def run(args):
 
@@ -1392,22 +1423,34 @@ def run(args):
         gene = isoforms_info[iso].geneName()  # if multi-gene, returns "geneA_geneB_geneC..."
         geneFSM_dict[gene].append(isoforms_info[iso].str_class)
 
+    fields_class_cur = FIELDS_CLASS
     ## FL count file
     if args.fl_count:
         if not os.path.exists(args.fl_count):
             print >> sys.stderr, "FL count file {0} does not exist!".format(args.fl_count)
             sys.exit(-1)
         print >> sys.stderr, "**** Reading Full-length read abundance files..."
-        fl_count_dict = FLcount_parser(args.fl_count)
+        fl_samples, fl_count_dict = FLcount_parser(args.fl_count)
         for pbid in fl_count_dict:
             if pbid not in isoforms_info:
                 print >> sys.stderr, "WARNING: {0} found in FL count file but not in input fasta.".format(pbid)
-        for iso in isoforms_info:
-            if iso in fl_count_dict:
-                isoforms_info[iso].FL = fl_count_dict[iso]
-            else:
-                print >> sys.stderr, "WARNING: {0} not found in FL count file. Assign count as 0.".format(iso)
-                isoforms_info[iso].FL = 0
+        if len(fl_samples) == 1: # single sample from PacBio
+            print >> sys.stderr, "Single-sample PacBio FL count format detected."
+            for iso in isoforms_info:
+                if iso in fl_count_dict:
+                    isoforms_info[iso].FL = fl_count_dict[iso]
+                else:
+                    print >> sys.stderr, "WARNING: {0} not found in FL count file. Assign count as 0.".format(iso)
+                    isoforms_info[iso].FL = 0
+        else: # multi-sample
+            print >> sys.stderr, "Multi-sample PacBio FL count format detected."
+            fields_class_cur = FIELDS_CLASS + ["FL."+s for s in fl_samples]
+            for iso in isoforms_info:
+                if iso in fl_count_dict:
+                    isoforms_info[iso].FL_dict = fl_count_dict[iso]
+                else:
+                    print >> sys.stderr, "WARNING: {0} not found in FL count file. Assign count as 0.".format(iso)
+                    isoforms_info[iso].FL_dict = defaultdict(lambda: 0)
     else:
         print >> sys.stderr, "Full-length read abundance files not provided."
 
@@ -1457,7 +1500,6 @@ def run(args):
     # Read the junction information to fill in several remaining unfilled fields in classification
     # (1) "canonical": is "canonical" if all junctions are canonical, otherwise "non_canonical"
     # (2) "bite": is TRUE if any of the junction "bite_junction" field is TRUE
-    # ToDO: assign other fields later, right now I only did the .canonical and .bite field
 
     reader = DictReader(open(outputJuncPath+"_tmp"), delimiter='\t')
     fields_junc_cur = reader.fieldnames
@@ -1507,7 +1549,7 @@ def run(args):
     iso_keys = isoforms_info.keys()
     iso_keys.sort(key=lambda x: (isoforms_info[x].chrom,isoforms_info[x].id))
     with open(outputClassPath, 'w') as h:
-        fout_class = DictWriter(h, fieldnames=FIELDS_CLASS, delimiter='\t')
+        fout_class = DictWriter(h, fieldnames=fields_class_cur, delimiter='\t')
         fout_class.writeheader()
         for iso_key in iso_keys:
             fout_class.writerow(isoforms_info[iso_key].as_dict())
@@ -1639,7 +1681,7 @@ def main():
     parser.add_argument('-s','--sites', default="ATAC,GCAG,GTAG", help='\t\tSet of splice sites to be considered as canonical (comma-separated list of splice sites). Default: GTAG,GCAG,ATAC.', required=False)
     parser.add_argument('-w','--window', default="20", help='\t\tSize of the window in the genomic DNA screened for Adenine content downstream of TTS', required=False, type=int)
     parser.add_argument('--geneid', help='\t\tUse gene_id tag from GTF to define genes. Default: gene_name used to define genes', default=False, action='store_true')
-    parser.add_argument('-fl', '--fl_count', help='\t\tFull-length PacBio abundance file.', required=False)
+    parser.add_argument('-fl', '--fl_count', help='\t\tFull-length PacBio abundance file', required=False)
     parser.add_argument("-v", "--version", help="Display program version number.", action='version', version='SQANTI2 '+str(__version__))
 
     args = parser.parse_args()
