@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.8'
+__version__ = '3.9'
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -1363,7 +1363,10 @@ def FLcount_parser(fl_count_filename):
                     fl_count_dict[k][sample] = int(count) if count!='NA' else 0
 
     samples.sort()
-    samples.remove('superPBID')
+    try:
+        samples.remove('superPBID')
+    except:
+        pass
     return samples, fl_count_dict
 
 def run(args):

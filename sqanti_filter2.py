@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '3.8'
+__version__ = '3.9'
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
