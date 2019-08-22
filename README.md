@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 08/19/2019
+Last Updated: 08/22/2019
 
 ## What is SQANTI2
 
@@ -19,6 +19,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2019.08.22 updated to version 4.0. `sqanti_filter2.py` now outputs GTF.
 
 2019.08.19 updated to version 3.9. Fixed minor bug in removing superPBID (not always the case) in `sqanti_qc2.py`
 

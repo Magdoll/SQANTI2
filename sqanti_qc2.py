@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '3.9'
+__version__ = '4.0'
 
 import pdb
 import os, re, sys, subprocess, timeit, glob

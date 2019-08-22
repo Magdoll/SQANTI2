@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '3.9'
+__version__ = '4.0'
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
@@ -16,6 +16,7 @@ import distutils.spawn
 from csv import DictReader, DictWriter
 from Bio import SeqIO
 from cupcake.io.BioReaders import GMAPSAMReader
+from cupcake.io.GFF import collapseGFFReader, write_collapseGFF_format
 
 utilitiesPath =  os.path.dirname(os.path.realpath(__file__))+"/utilities/"
 RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
@@ -124,6 +125,13 @@ def sqanti_filter_lite(args):
                 f.write(r.record_line + '\n')
         print >> sys.stdout, "Output written to: {0}".format(f.name)
 
+    outputGTF = prefix + '.filtered_lite.gtf'
+    with open(outputGTF, 'w') as f:
+        for r in collapseGFFReader(args.gtf_file):
+            if r.seqid in seqids_to_keep:
+                write_collapseGFF_format(f, r)
+        print >> sys.stderr, "Output written to: {0}".format(f.name)
+
 
     print >> sys.stderr, "**** Generating SQANTI report...."
     cmd = RSCRIPTPATH + " {d}/{f} {c} {j}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath)
@@ -139,6 +147,7 @@ def main():
     parser.add_argument('sqanti_class', help='\t\tSQANTI classification output file.')
     parser.add_argument('isoforms', help='\t\tfasta/fastq isoform file to be filtered by SQANTI')
     parser.add_argument('sam_file', help='\t\tSAM alignment of the input fasta/fastq')
+    parser.add_argument('gtf_file', help='\t\tGTF of the input fasta/fastq')
     parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.8)')
     parser.add_argument('-m',"--max_dist_to_known_end", type=int, default=50, help="\t\tMaximum distance to an annotated 3' end to preserve as a valid 3' end and not filter out (default: 50bp)")
     parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")
@@ -157,16 +166,7 @@ def main():
         print >> sys.stderr, "ERROR: {0} doesn't exist. Abort!".format(args.isoforms)
         sys.exit(-1)
 
-    # if args.dir is None:
-    #     args.dir = os.getcwd() + "/Filter_out"
-    #     if not os.path.exists(args.dir):
-    #         os.makedirs(args.dir)
-    # else:
-    #     args.dir = os.path.abspath(args.dir)
-    #     if not os.path.exists(args.dir):
-    #         os.makedirs(args.dir)
-
-    print >> sys.stdout, "\nRunning SQANTI filtering...\n"
+    print >> sys.stdout, "\nRunning SQANTI2 filtering...\n"
 
     sqanti_filter_lite(args)
 

@@ -194,13 +194,33 @@ isoPerGene$nIsoCat =cut(isoPerGene$nIso, breaks = c(0,1,3,5,max(isoPerGene$nIso)
 
 if (!all(is.na(data.class$FL))){
     total_fl <- sum(data.class$FL, na.rm=T)
-    data.class$FL_TPM <- data.class$FL*(10**6)/total_fl
+    data.class$FL_TPM <- round(data.class$FL*(10**6)/total_fl)
 }
+
+
+# see if there are multple FL samples
+FL_multisample_indices <- which(substring(colnames(data.class), 1,3)=="FL.")
+if (length(FL_multisample_indices)>0)
+{
+    FL_multisample_names <- substring(colnames(data.class)[FL_multisample_indices],4)
+    FL_TPM_multisample_names <- c();
+
+    for (i in 1:length(FL_multisample_indices)) {
+        j <- FL_multisample_indices[i]
+        name <- paste("FL_TPM", FL_multisample_names[i], sep='.')
+        FL_TPM_multisample_names <- c(FL_TPM_multisample_names, name)
+        total_fl <- sum(data.class[j])
+        data.class[,name] <- log10(data.class[j]*(10**6)/total_fl + 1)
+    }
+}
+
 
 # PLOT length of isoforms
 # p.length.all: length of all isoforms, regardless of category
 # p.length.cat: length of isoforms, by category
 # p.length.exon: length of isoforms, mono- vs mult-exon
+# (optional) p.length.all.sample
+# (optional) p.length.exon.sample
 
 p.length.all <- ggplot(data.class, aes(x=length)) +
   geom_histogram(binwidth=100) +
@@ -209,6 +229,32 @@ p.length.all <- ggplot(data.class, aes(x=length)) +
   labs(x="Transcript Length", y="Count", title="Transcript Lengths, all transcripts") +
   theme(legend.position="top") +
   mytheme
+
+if (length(FL_multisample_indices)>0) {  # has multiple samples
+    df.length_by_sample <- data.frame();
+    for (i in 1:length(FL_multisample_indices)) {
+        j <- FL_multisample_indices[i];
+        df_new <- data.class[data.class[j]>0,c("isoform", "length", "exonCat")];
+        df_new$sample <- FL_multisample_names[i];
+        df.length_by_sample <- rbind(df.length_by_sample, df_new);
+    }
+
+    p.length.all.sample <- ggplot(df.length_by_sample, aes(x=length, color=sample)) +
+        geom_freqpoly(binwidth=100) +
+        guides(fill=FALSE) +
+        scale_fill_manual(values = myPalette[c(2:5)]) +
+        labs(x="Transcript Length", y="Count", title="Transcript Lengths, By Sample") +
+        theme(legend.position="top") +
+        mytheme
+
+    p.length.exon.sample <- ggplot(df.length_by_sample, aes(x=length, color=sample, lty=exonCat)) +
+        geom_freqpoly(binwidth=100) +
+        guides(fill=FALSE) +
+        scale_fill_manual(values = myPalette[c(2:5)]) +
+        labs(x="Transcript Length", y="Count", title="Transcript Lengths, Mono- vs Multi-Exons, By Sample") +
+        theme(legend.position="top") +
+        mytheme
+}
 
 p.length.cat <- ggplot(data.class, aes(x=length, color=structural_category)) +
   geom_freqpoly(binwidth=100) +
@@ -382,9 +428,6 @@ if (!all(is.na(data.class$iso_exp))){
 # PLOT 9: FL number, if FL count provided
 # convert FL count to TPM
 if (!all(is.na(data.class$FL))){
-#    total_fl <- sum(data.class$FL, na.rm=T)
-#    data.class$FL_TPM <- data.class$FL*(10**6)/total_fl
-
     p9 <- ggplot(data=data.class, aes(x=structural_category, y=log2(FL_TPM+1), fill=structural_category)) +
     geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
     ylab("log2(FL_TPM+1)") +
@@ -397,6 +440,7 @@ if (!all(is.na(data.class$FL))){
     theme(axis.title.x=element_blank()) +
     ggtitle("FL Count (normalized) by Structural Category\n\n" )
 }
+
 
 
 # PLOT 10: Gene Expression, if expresion provided
@@ -1044,9 +1088,14 @@ if (!all(is.na(data.class$FL))){
 # p.length.all: length of all isoforms, regardless of category
 # p.length.cat: length of isoforms, by category
 # p.length.exon: length of isoforms, mono- vs mult-exon
+# (optional) p.length.all.sample: length of all isoforms by sample
 print(p.length.all)
 print(p.length.cat)
 print(p.length.exon)
+if (length(FL_multisample_indices)>0) {
+    print(p.length.all.sample)
+    print(p.length.exon.sample)
+}
 
 # 2. general parameters by structual categories
 s <- textGrob("Structural Isoform Characterization\nby Splice Junctions", gp=gpar(fontface="italic", fontsize=17), vjust = 0)
@@ -1059,6 +1108,126 @@ if (!all(is.na(data.class$iso_exp))){
 }
 if (!all(is.na(data.class$FL))){
     print(p9)
+}
+
+
+# (optional) p.FL_TPM_sample.by_cat
+# (optional) p.FL_TMP_sample.by_length
+if (length(FL_multisample_indices)>0) {
+    data.class$length_cat <- "<1kb"
+    data.class[data.class$length>=1000,"length_cat"] <- "1-3kb"
+    data.class[data.class$length>=3000&data.class$length<5000,"length_cat"] <- "3-5kb"
+    data.class[data.class$length>=5000&data.class$length<10000,"length_cat"] <- "5-10kb"
+    data.class[data.class$length>10000,"length_cat"] <- ">10kb"
+
+    for (i in 1:(length(FL_TPM_multisample_names)-1)) {
+        j1 <- FL_TPM_multisample_names[i]
+        n1 <- FL_multisample_names[i]
+        for (i2 in (i+1):length(FL_multisample_names)) {
+            j2 <- FL_TPM_multisample_names[i2]
+            n2 <- FL_multisample_names[i2]
+
+            print(paste("Printing FL TPM for sample", j1, "vs", j2, "...."))
+
+            max_j1j2 <- floor(max(data.class[,j1], data.class[,j2])) + 1
+            pearson <- round(cor(data.class[,j1], data.class[,j2], method="pearson"), 2)
+            p.tmp <- ggplot(data.class, aes_string(j1, j2, color="structural_category")) +
+                geom_point(alpha=0.3) +
+                annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
+                xlim(c(0, max_j1j2)) +
+                ylim(c(0, max_j1j2)) +
+                labs(title=paste("FL TPM (log10 scale)", n1, "vs", n2)) +
+                guides(fill=FALSE) +
+                mytheme
+            print(p.tmp)
+            ggsave(paste("Rplot.",n1,"vs",n2,".by_cat.png",sep=''), p.tmp, width=8, height=6)
+
+            data.class.gene <- group_by(data.class, by=associated_gene) %>% summarise(n=n(), sum1=sum(!!sym(j1)), sum2=sum(!!sym(j2)))
+            pearson <- round(cor(data.class.gene$sum1, data.class.gene$sum2, method="pearson"), 2)
+            p.tmp.gene <- ggplot(data.class.gene, aes(x=sum1, y=sum2)) +
+                geom_point(alpha=0.3, color='orange') +
+                annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
+                xlim(c(0, max_j1j2)) +
+                ylim(c(0, max_j1j2)) +
+                xlab(j1) +
+                ylab(j2) +
+                labs(title=paste("FL TPM (log10 scale)", n1, "vs", n2, ", grouped by gene")) +
+                guides(fill=FALSE) +
+                mytheme
+            print(p.tmp.gene)
+            ggsave(paste("Rplot.",n1,"vs",n2,".summed_by_gene.png",sep=''), p.tmp.gene, width=8, height=6)
+
+
+            data.class.tmp <- subset(data.class,length_cat=="<1kb")
+            pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
+            p.tmp.le1k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+                geom_point(alpha=0.3, color='orange') +
+                annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
+                xlim(c(0, max_j1j2)) +
+                ylim(c(0, max_j1j2)) +
+                labs(title=paste("FL TPM (log10 scale)", n1, "vs", n2, "< 1kb only"))+
+                guides(fill=FALSE) +
+                mytheme
+            print(p.tmp.le1k)
+            ggsave(paste("Rplot.",n1,"vs",n2,".le1k.png",sep=''), p.tmp.le1k, width=8, height=6)
+
+            data.class.tmp <- subset(data.class,length_cat=="1-3kb")
+            pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
+            p.tmp.1to3k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+                geom_point(alpha=0.3, color='purple') +
+                annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
+                xlim(c(0, max_j1j2)) +
+                ylim(c(0, max_j1j2)) +
+                labs(title=paste("FL TPM (log10 scale)", n1, "vs", n2, "1-3kb only")) +
+                guides(fill=FALSE) +
+                mytheme
+            print(p.tmp.1to3k)
+            ggsave(paste("Rplot.",n1,"vs",n2,".1to3k.png",sep=''), p.tmp.1to3k, width=8, height=6)
+
+            data.class.tmp <- subset(data.class,length_cat=="3-5kb")
+            pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
+            p.tmp.3to5k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+                geom_point(alpha=0.3, color='royalblue4') +
+                annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
+                xlim(c(0, max_j1j2)) +
+                ylim(c(0, max_j1j2)) +
+                labs(title=paste("FL TPM (log10 scale)", n1, "vs", n2, "3-5kb only")) +
+                guides(fill=FALSE) +
+                mytheme
+            print(p.tmp.3to5k)
+            ggsave(paste("Rplot.",n1,"vs",n2,".3to5k.png",sep=''), p.tmp.3to5k, width=8, height=6)
+
+            data.class.tmp <- subset(data.class,length_cat=="5-10kb")
+            pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
+            p.tmp.5to10k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+                geom_point(alpha=0.3, color='hotpink4') +
+                annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
+                xlim(c(0, max_j1j2)) +
+                ylim(c(0, max_j1j2)) +
+                labs(title=paste("FL TPM (log10 scale)", n1, "vs", n2, "5-10 kb only")) +
+                guides(fill=FALSE) +
+                mytheme
+            print(p.tmp.5to10k)
+            ggsave(paste("Rplot.",n1,"vs",n2,".5to10k.png",sep=''), p.tmp.5to10k, width=8, height=6)
+
+            data.class.tmp <- subset(data.class,length_cat==">10kb")
+            pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
+            p.tmp.ge10k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+                geom_point(alpha=0.3, color='darkolivegreen4') +
+                annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
+                xlim(c(0, max_j1j2)) +
+                ylim(c(0, max_j1j2)) +
+                labs(title=paste("FL TPM (log10 scale)", n1, "vs", n2, ">10 kb only")) +
+                guides(fill=FALSE) +
+                mytheme
+            print(p.tmp.ge10k)
+            ggsave(paste("Rplot.",n1,"vs",n2,".ge10k.png",sep=''), p.tmp.ge10k, width=8, height=6)
+
+
+            #grid.arrange(p.tmp.le1k, p.tmp.1to3k, p.tmp.3to5k, p.tmp.5to10k, p.tmp.ge10k, ncol=2)
+
+        }
+    }
 }
 
 #
@@ -1160,7 +1329,7 @@ print(p28.SJ)
 dev.off()
 
 
-print("SQANTI report successfully generated!")
+print("SQANTI2 report successfully generated!")
 
 
 
