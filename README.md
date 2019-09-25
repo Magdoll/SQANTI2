@@ -83,10 +83,6 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 
 
-![](https://github.com/Magdoll/images_public/blob/master/github_isoseq3_wiki_figures/wiki_SQANTI_sample_output.png)
-
-
-
 <a name="install"/>
 
 ## Prerequisite
@@ -141,7 +137,7 @@ source activate anaCogent3
 conda install -n anaCogent3 -c bioconda pysam
 conda install -n anaCogent3 psutil
 conda install -n anaCogent3 biopython
-conda install -n anaCogent3 -c http://conda.anaconda.org/cgat bx-python
+conda install -n anaCogent3 -c bioconda bx-python
 conda install -n anaCogent3 -c bioconda bcbiogff
 ```
 
@@ -306,7 +302,7 @@ I've made a lightweight filtering script based on SQANTI2 output that filters fo
 The script usage is:
 
 ```
-python sqanti_filter2.py <classification_txt> <input_fasta> <input_sam>
+python sqanti_filter2.py [classification] [fasta] [sam] [gtf]
          [-a INTRAPRIMING] [-c MIN_COV] [-m MAX_DIST_TO_KNOWN_END]
 ```
 
@@ -320,9 +316,10 @@ where `-a` determines the fraction of genomic 'A's above which the isoform will 
 For example:
 
 ```
-python sqanti_filter2.py touse.rep_classification.txt \
-                         touse.rep.renamed_corrected.fasta \
-                         touse.rep.renamed_corrected.sam
+python sqanti_filter2.py test_classification.txt \
+                         test.renamed_corrected.fasta \
+                         test.renamed_corrected.sam \
+                         test.gtf
 ```
 
 The current filtering rules are as follow:
