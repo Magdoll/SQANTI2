@@ -12,7 +12,8 @@ class.file <- args[1]
 junc.file <- args[2]
 
 report.prefix <- strsplit(class.file, "_classification.txt")[[1]][1];
-report.file <- paste(report.prefix, "sqanti_report.pdf", sep="_")
+report.file <- paste(report.prefix, "sqanti_report.pdf", sep="_");
+class.file2 <- paste(report.prefix, "_classification_TPM.txt", sep='');
 
 
 #********************** Packages (install if not found)
@@ -208,10 +209,13 @@ if (length(FL_multisample_indices)>0)
     for (i in 1:length(FL_multisample_indices)) {
         j <- FL_multisample_indices[i]
         name <- paste("FL_TPM", FL_multisample_names[i], sep='.')
+        name2 <- paste(name, "_log10", sep='')
         FL_TPM_multisample_names <- c(FL_TPM_multisample_names, name)
         total_fl <- sum(data.class[j])
-        data.class[,name] <- log10(data.class[j]*(10**6)/total_fl + 1)
+        data.class[,name] <- data.class[j]*(10**6)/total_fl
+        data.class[,name2] <- log10(data.class[j]*(10**6)/total_fl + 1)
     }
+    write.table(data.class, class.file2, quote=F);
 }
 
 
@@ -1122,16 +1126,18 @@ if (length(FL_multisample_indices)>0) {
 
     for (i in 1:(length(FL_TPM_multisample_names)-1)) {
         j1 <- FL_TPM_multisample_names[i]
+        j1_log10 <- paste(FL_TPM_multisample_names[i], "_log10", sep='')
         n1 <- FL_multisample_names[i]
         for (i2 in (i+1):length(FL_multisample_names)) {
             j2 <- FL_TPM_multisample_names[i2]
+            j2_log10 <- paste(FL_TPM_multisample_names[i2], "_log10", sep='')
             n2 <- FL_multisample_names[i2]
 
             print(paste("Printing FL TPM for sample", j1, "vs", j2, "...."))
 
-            max_j1j2 <- floor(max(data.class[,j1], data.class[,j2])) + 1
+            max_j1j2 <- floor(max(data.class[,j1_log10], data.class[,j2_log10])) + 1
             pearson <- round(cor(data.class[,j1], data.class[,j2], method="pearson"), 2)
-            p.tmp <- ggplot(data.class, aes_string(j1, j2, color="structural_category")) +
+            p.tmp <- ggplot(data.class, aes_string(j1_log10, j2_log10, color="structural_category")) +
                 geom_point(alpha=0.3) +
                 annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
                 xlim(c(0, max_j1j2)) +
@@ -1144,7 +1150,7 @@ if (length(FL_multisample_indices)>0) {
 
             data.class.gene <- group_by(data.class, by=associated_gene) %>% summarise(n=n(), sum1=sum(!!sym(j1)), sum2=sum(!!sym(j2)))
             pearson <- round(cor(data.class.gene$sum1, data.class.gene$sum2, method="pearson"), 2)
-            p.tmp.gene <- ggplot(data.class.gene, aes(x=sum1, y=sum2)) +
+            p.tmp.gene <- ggplot(data.class.gene, aes(x=log10(sum1), y=log10(sum2))) +
                 geom_point(alpha=0.3, color='orange') +
                 annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
                 xlim(c(0, max_j1j2)) +
@@ -1160,7 +1166,7 @@ if (length(FL_multisample_indices)>0) {
 
             data.class.tmp <- subset(data.class,length_cat=="<1kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
-            p.tmp.le1k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+            p.tmp.le1k <- ggplot(data.class.tmp, aes_string(j1_log10, j2_log10)) +
                 geom_point(alpha=0.3, color='orange') +
                 annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
                 xlim(c(0, max_j1j2)) +
@@ -1173,7 +1179,7 @@ if (length(FL_multisample_indices)>0) {
 
             data.class.tmp <- subset(data.class,length_cat=="1-3kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
-            p.tmp.1to3k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+            p.tmp.1to3k <- ggplot(data.class.tmp, aes_string(j1_log10, j2_log10)) +
                 geom_point(alpha=0.3, color='purple') +
                 annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
                 xlim(c(0, max_j1j2)) +
@@ -1186,7 +1192,7 @@ if (length(FL_multisample_indices)>0) {
 
             data.class.tmp <- subset(data.class,length_cat=="3-5kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
-            p.tmp.3to5k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+            p.tmp.3to5k <- ggplot(data.class.tmp, aes_string(j1_log10, j2_log10)) +
                 geom_point(alpha=0.3, color='royalblue4') +
                 annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
                 xlim(c(0, max_j1j2)) +
@@ -1199,7 +1205,7 @@ if (length(FL_multisample_indices)>0) {
 
             data.class.tmp <- subset(data.class,length_cat=="5-10kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
-            p.tmp.5to10k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+            p.tmp.5to10k <- ggplot(data.class.tmp, aes_string(j1_log10, j2_log10)) +
                 geom_point(alpha=0.3, color='hotpink4') +
                 annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
                 xlim(c(0, max_j1j2)) +
@@ -1212,7 +1218,7 @@ if (length(FL_multisample_indices)>0) {
 
             data.class.tmp <- subset(data.class,length_cat==">10kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
-            p.tmp.ge10k <- ggplot(data.class.tmp, aes_string(j1, j2)) +
+            p.tmp.ge10k <- ggplot(data.class.tmp, aes_string(j1_log10, j2_log10)) +
                 geom_point(alpha=0.3, color='darkolivegreen4') +
                 annotate("text", x=max_j1j2-0.5, y=max_j1j2-0.5, label=paste("Pearson:", pearson)) +
                 xlim(c(0, max_j1j2)) +

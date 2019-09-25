@@ -1,10 +1,10 @@
 # SQANTI2
 
-Last Updated: 08/22/2019
+Last Updated: 09/24/2019
 
 ## What is SQANTI2
 
-SQANTI2 is an updated version of SQANTI ([publication](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5848618/), [code repository](https://bitbucket.org/ConesaLab/sqanti)). 
+SQANTI2 is a developer's version of SQANTI ([publication](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5848618/), [code repository](https://bitbucket.org/ConesaLab/sqanti)). 
 
 
 New features implemented in SQANTI2 not available in SQANTI:
@@ -14,61 +14,80 @@ New features implemented in SQANTI2 not available in SQANTI:
 * CAGE peak --- new fields `dist_peak` and `within_peak` in classification output. Must provide CAGE peak data.
 * polyA motif --- new field `polyA_motif` in classification output. Must provide polyA motif list.
 * CDS-annotated GFF --- SQANTI2 outputs a `xxxx.cds.gff` GFF file that annotates CDS regions.
+* PacBio Iso-Seq FL count multi-sample plotting --- use the `--fl_count` option for single or multi-sample FL counts
 
+
+## SQANTI2 HowTos
+
+* <a href="#install">Setting up SQANTI2</a>
+* <a href="#input">Running SQANTI2 Classification</a>
+   * <a href="#flcount">Single or Multi-Sample FL Count Plotting</a>
+* <a href="#filter">Filtering Isoforms using SQANTI2</a>
+* <a href="#explain">SQANTI2 Output Explanation</a>
+   * <a href="#class">Classification Output Explanation</a>
+   * <a href="#junction">Junction Output Explanation</a>
+   
 
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
 
+2019.09.24 updated to version 4.1. `sqanti_qc2.py` now supports `--fl_count` multi-sample with plotting.
+
 2019.08.22 updated to version 4.0. `sqanti_filter2.py` now outputs GTF.
 
-2019.08.19 updated to version 3.9. Fixed minor bug in removing superPBID (not always the case) in `sqanti_qc2.py`
+<details>
+   <summary>Click here to see older update logs.</summary>
+    
+    2019.08.19 updated to version 3.9. Fixed minor bug in removing superPBID (not always the case) in `sqanti_qc2.py`
+    
+    2019.08.13 updated to version 3.8. Fixed `SQANTI_report2.R` printing bug for when polyA info is NA.
+    
+    2019.08.01 updated to version 3.7. `--expression` supports RSEM and Kallisto output. Expression and polyA motifs added to PDF plots.
+    
+    2019.07.26 updated to version 3.6. `--fl_count` is supported again!
+    
+    2019.07.25 updated to version 3.5. Checks for Cupcake version (8.1+)
+    
+    2019.07.24 updated to versoin 3.4. Now `--gtf` input option works with collapsed GFF format.
+    
+    2019.07.23 updated to version 3.3. Added CDS for GFF support and IR fix.
+    
+    2019.07.19 updated to version 3.2. `sqanti_qc2.py` fusion mode surpressed ORF prediction for the meantime. Minor mod to gmst to work on small input.
+    
+    2019.07.17 updated to version 3.1. `sqanti_qc2.py` now supports GTF input `--gtf` again. Minor change to NIC subtype categorization naming.
+    
+    2019.07.16 updated to version 3.0. now use Bioconda install of `gtfToGenePred` and `gffread`.
+    
+    2019.07.12 updated to version 2.9. `sqanti_qc2.py` now annotates NMD prediction.
+    
+    2019.06.19 updated to version 2.8. `sqanti_qc2.py` now works with fusion transcripts (must have ID `PBfusion.X`) using the `--is_fusion` option
+    
+    2019.06.02 updated to version 2.7. Fixed GMAP option bug + added distance to closest annotated start/end for the gene (not ref isoform) and filtering afterwards.
+    
+    2019.05.02 updated to version 2.6. Added deSALT aligner support using `--aligner=deSALT`. 
+    
+    2019.03.18 minor typo fixed for version 2.5. updated doc for `sqanti_filter2.py`
+    
+    2019.03.10 updated to version 2.5. Fixed `sqanti_filter2.py` missing fusion category also using polyA_motif as part of filtering.
+    
+    2019.02.27 updated to version 2.4.  Added polyA motif finding.
+    
+    2019.02.27 updated to version 2.3. `junction_category` fixed to check for (ss5,ss3) pairs in provided GTF.
+    
+    2019.02.26 updated to version 2.2. added support for CAGE peak (FANTOM5) and Intropolis junction BED. 
+    
+    2018.10.15 updated to version 1.1. modified use of SAM to GFF with added `source` parameter.
 
-2019.08.13 updated to version 3.8. Fixed `SQANTI_report2.R` printing bug for when polyA info is NA.
+</details>
 
-2019.08.01 updated to version 3.7. `--expression` supports RSEM and Kallisto output. Expression and polyA motifs added to PDF plots.
 
-2019.07.26 updated to version 3.6. `--fl_count` is supported again!
-
-2019.07.25 updated to version 3.5. Checks for Cupcake version (8.1+)
-
-2019.07.24 updated to versoin 3.4. Now `--gtf` input option works with collapsed GFF format.
-
-2019.07.23 updated to version 3.3. Added CDS for GFF support and IR fix.
-
-2019.07.19 updated to version 3.2. `sqanti_qc2.py` fusion mode surpressed ORF prediction for the meantime. Minor mod to gmst to work on small input.
-
-2019.07.17 updated to version 3.1. `sqanti_qc2.py` now supports GTF input `--gtf` again. Minor change to NIC subtype categorization naming.
-
-2019.07.16 updated to version 3.0. now use Bioconda install of `gtfToGenePred` and `gffread`.
-
-2019.07.12 updated to version 2.9. `sqanti_qc2.py` now annotates NMD prediction.
-
-2019.06.19 updated to version 2.8. `sqanti_qc2.py` now works with fusion transcripts (must have ID `PBfusion.X`) using the `--is_fusion` option
-
-2019.06.02 updated to version 2.7. Fixed GMAP option bug + added distance to closest annotated start/end for the gene (not ref isoform) and filtering afterwards.
-
-2019.05.02 updated to version 2.6. Added deSALT aligner support using `--aligner=deSALT`. 
-
-2019.03.18 minor typo fixed for version 2.5. updated doc for `sqanti_filter2.py`
-
-2019.03.10 updated to version 2.5. Fixed `sqanti_filter2.py` missing fusion category also using polyA_motif as part of filtering.
-
-2019.02.27 updated to version 2.4.  Added polyA motif finding.
-
-2019.02.27 updated to version 2.3. `junction_category` fixed to check for (ss5,ss3) pairs in provided GTF.
-
-2019.02.26 updated to version 2.2. added support for CAGE peak (FANTOM5) and Intropolis junction BED. 
-
-2018.10.15 updated to version 1.1. modified use of SAM to GFF with added `source` parameter.
-
-Private repo for Liz's modified SQANTI. The original [SQANTI](https://bitbucket.org/ConesaLab/sqanti) is by Ana Conesa lab.
 
 ![](https://github.com/Magdoll/images_public/blob/master/github_isoseq3_wiki_figures/wiki_SQANTI_sample_output.png)
 
-Until the SQANTI authors have finalized their agreement with Liz on how to integrate Liz's changes, the script names are modified to reflect this as a temporary working version.
 
-For example, `sqanti_qc.py` is named currently `sqanti_qc2.py`.
+
+<a name="install"/>
 
 ## Prerequisite
 
@@ -156,9 +175,11 @@ $ source activate anaCogent3
 2.15-r905
 ```
 
-#### Input to SQANTI QC
+<a name="input"/>
 
-* *Iso-Seq output*. Preferably already mapped to the genome and [collapsed to unique transcripts](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#collapse). (FASTA/FASTQ)
+#### Input to SQANTI2 Classification
+
+* *Iso-Seq output*. Preferably already mapped to the genome and [collapsed to unique transcripts](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#collapse). (FASTA/FASTQ/GTF)
 * *Reference annotation* in GTF format. For example [GENCODE](https://www.gencodegenes.org/releases/current.html) or [CHESS](http://ccb.jhu.edu/chess/).
 * *Reference genome*, in FASTA format. For example hg38. *Make sure your annotation GTF is based on the correct ref genome version!*
 
@@ -170,14 +191,19 @@ Optionally:
 
 * polyA motif list. A ranked  list of polyA motifs to find upstream of the 3' end site. See [human polyA list](https://raw.githubusercontent.com/Magdoll/images_public/master/SQANTI2_support_data/human.polyA.list.txt) for an example.
 
-### Running SQANTI QC
+* FL count information. See <a href="#flcount">FL count section</a> to include Iso-Seq FL count information for each isoform.
+
+
+### Running SQANTI2 Classification
 
 The script usage is:
 
 ```
-python sqanti_qc2.py [-t cpus] [--skipORF] [-c shortread_STAR_junction_out] 
+python sqanti_qc2.py [-t cpus] [--gtf] [--skipORF] 
+     [-c shortread_STAR_junction_out] 
      [--cage_peak CAGE_PEAK_BED]
      [--polyA_motif_list POLYA_LIST]
+     [--fl_count FL_COUNT]
      [--aligner_choice=minimap2,deSALT]
      [--is_fusion]
      <input_fasta> <annotation_gtf> <genome_fasta>
@@ -195,31 +221,84 @@ You can look at the [`MINIMAP2_CMD` and `DESALT_CMD` in `sqanti_qc2.py` for the 
 For example:
 
 ```
-python sqanti_qc2.py -t 30 example/touse.rep.fasta gencode.v29.annotation.gtf hg38_noalt.fa \
-      --cage_peak hg38.cage_peak_phase1and2combined_coord.bed \
-      --coverage Public_Intronpolis/intropolis.v1.hg19_with_liftover_to_hg38.tsv.modified
-```
-
-If you have multiple bed files, you can use file patterns:
-
-```
-python sqanti_qc2.py -t 30 example/touse.rep.fasta gencode.v29.annotation.gtf hg38_noalt.fa \
-      --cage_peak hg38.cage_peak_phase1and2combined_coord.bed \
-      --coverage "JunctionBeds/samples.*.junctions.bed"
+python sqanti_qc2.py -t 30 --gtf example/test.gtf \
+     gencode.v29.annotation.gtf hg38.fa \
+     --fl_count example/test.chained_count.txt \
+     --polyA_motif_list example/polyA.list \
+     --cage_peak hg38.cage_peak_phase1and2combined_coord.bed \
+     -c "Public_Intronpolis/*10.modified"
 ```
 
 
 For fusion transcripts, you must use the `--is_fusion` option for `sqanti_qc2.py` to work properly. Furthermore, the IDs in the input FASTA/FASTQ *must* have the format `PBfusion.X`, as is output by [`fusion_finder.py` in Cupcake](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#fusion).
 
 
-### SQANTI QC output
+### SQANTI2 Classification Output
 
 You can look at the [example](https://github.com/Magdoll/SQANTI2/tree/master/example) subfolder for a sample output. The PDF file shows all the figures drawn using R script [SQANTI_report2.R](https://github.com/Magdoll/SQANTI2/blob/master/utilities/SQANTI_report2.R), taking the `_classification.txt` and `_junctions.txt` as the two input. If you know R well, you are free to modify the R script to add new figures! I will be constantly adding new figures as well.
 
 Detailed explanation of `_classification.txt` and `_junctions.txt` <a href="#explain">below</a>.
 
 
-### Filtering Isoforms using SQANTI
+<a name="flcount"/>
+
+### Single or Multi-Sample FL Count Plotting
+
+Supported since: version 4.1
+
+`sqanti_qc2.py` supports single or multi-sample FL counts from PacBio Iso-Seq pipeline. There are three acceptable formats.
+
+#### Single Sample FL Count
+
+A single sample FL Count file is automatically produced by the Iso-Seq With Mapping pipeline in [SMRTLink/SMRTAnalysis](https://www.pacb.com/products-and-services/analytical-software/) with the following format:
+
+#### Multi Sample Chained FL Count
+
+A multi-sample FL Count file produced by the [chain_samples.py](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#chain) script in Cupcake will have the following format:
+
+| superPBID | sample1 | sample2 | 
+| --------- | ------- | ------- |
+| PB.1.2 | 3 | NA |
+| PB.2.1 | 2 | NA |
+| PB.3.1 | 2 | 2 |
+| PB.3.2 | 5 | 3 |
+| PB.3.3 | 5 | 2 | 
+
+This is a tab-delimited file.
+
+
+#### Multi Sample Demux FL Count
+
+A multi-sample Demux FL Count file produced by the [demux_isoseq_with_genome.py](https://github.com/Magdoll/cDNA_Cupcake/wiki/Tutorial:-Demultiplexing-SMRT-Link-Iso-Seq-Jobs) script in Cupcake will have the following format:
+
+```
+id,sample1,sample2
+PB.1.1,3,10
+PB.1.2,0,11
+PB.1.3,4,4
+```
+
+This is a comma-delimited file.
+
+
+#### SQANTI2 output of FL Count information
+
+For each sample provided through the `--fl_count` option, `sqanti_qc2.py` will create a column in the `.classification.txt` output file that is `FL.<sample>`. Note that this is the raw FL count provided.
+
+When plotted, the script [SQANTI_report2.R](https://github.com/Magdoll/SQANTI2/blob/master/utilities/SQANTI_report2.R) will convert the FL counts to TPM using the formula:
+
+```
+                           raw FL count for PB.X.Y in sample1
+FL_TPM(PB.X.Y,sample1) = ------------------------------------- x 10^6
+                               total FL count in sample1
+```
+
+Two additional columns, `FL_TPM.<sample>` and `FL_TPM.<sample>_log10` will be added and output to a new classification file with the suffix `.classification_TPM.txt`.
+
+
+<a name="filter"/>
+
+### Filtering Isoforms using SQANTI2
 
 
 I've made a lightweight filtering script based on SQANTI2 output that filters for two things: (a) intra-priming and (b) short read junction support.  
@@ -263,7 +342,7 @@ SQANTI/SQANTI2 categorizes each isoform by finding the best matching reference t
 
 * FSM (*Full Splice Match*): meaning the reference and query isoform have the same number of exons and each internal junction agree. The exact 5' start and 3' end can differ by any amount.
 
-* ISM (*Incomplete Splice Match*): the query isoform has 5' exons than the reference, but each internal junction agree. The exact 5' start and 3' end can differ by any amount.
+* ISM (*Incomplete Splice Match*): the query isoform has fewer 5' exons than the reference, but each internal junction agree. The exact 5' start and 3' end can differ by any amount.
 
 * NIC (*Novel In Catalog*): the query isoform does not have a FSM or ISM match, but is using a combination of known donor/acceptor sites.
 
@@ -288,6 +367,7 @@ Novel isoforms are subtyped based on whether they use a combination of known jun
 
 ![NIC_subtype](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_NIC_subtype.png)
 
+<a name="class"/>
 
 #### Classification Output Explanation
 
@@ -334,6 +414,9 @@ The output `.classification.txt` has the following fields:
 37. `within_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
 38. `polyA_motif`: if `--polyA_motif_list` is given, shows the top ranking polyA motif found within 50 bp upstream of end.
 39. `polyA_dist`: if `--polyA_motif_list` is given, shows the location of the  last base of the hexamer. Position 0 is the putative poly(A) site. This distance is hence always negative because it is upstream. 
+
+
+<a name="junction"/>
 
 ### Junction Output Explanation
 

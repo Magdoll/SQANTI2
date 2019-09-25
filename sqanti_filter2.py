@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '4.0'
+__version__ = '4.1'
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
@@ -152,6 +152,7 @@ def main():
     parser.add_argument('-m',"--max_dist_to_known_end", type=int, default=50, help="\t\tMaximum distance to an annotated 3' end to preserve as a valid 3' end and not filter out (default: 50bp)")
     parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")
     #parser.add_argument("--always_keep_canonical", default=False, action="store_true", help="Always keep isoforms with all canonical junctions, regardless of other criteria. (default: False)")
+    parser.add_argument("-v", "--version", help="Display program version number.", action='version', version='SQANTI2 '+str(__version__))
 
     args = parser.parse_args()
 

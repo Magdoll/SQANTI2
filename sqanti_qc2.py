@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '4.0'
+__version__ = '4.1'
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -64,8 +64,8 @@ except ImportError:
 # check cupcake version
 import cupcake
 v1, v2 = map(int, cupcake.__version__.split('.'))
-if v1 < 8 or v2 < 1:
-    print sys.stderr, "Cupcake version must be 8.1 or higher! Got {0} instead.".format(cupcake.__version__)
+if v1 < 8 or v2 < 6:
+    print sys.stderr, "Cupcake version must be 8.6 or higher! Got {0} instead.".format(cupcake.__version__)
     sys.exit(-1)
 
 
@@ -390,6 +390,7 @@ def rewrite_sam_for_fusion_ids(sam_filename):
 def write_collapsed_GFF_with_CDS(isoforms_info, input_gff, output_gff):
     """
     Augment a collapsed GFF with CDS information
+    *NEW* Also, change the "gene_id" field to use the classification result
     :param isoforms_info: dict of id -> QueryTranscript
     :param input_gff:  input GFF filename
     :param output_gff: output GFF filename
@@ -397,6 +398,7 @@ def write_collapsed_GFF_with_CDS(isoforms_info, input_gff, output_gff):
     with open(output_gff, 'w') as f:
         reader = collapseGFFReader(input_gff)
         for r in reader:
+            r.geneid = isoforms_info[r.seqid].geneName()
             s = isoforms_info[r.seqid].CDS_genomic_start  # could be 'NA'
             e = isoforms_info[r.seqid].CDS_genomic_end    # could be 'NA'
             r.cds_exons = []
@@ -1318,11 +1320,21 @@ def find_polyA_motif(genome_seq, polyA_motif_list):
 
 def FLcount_parser(fl_count_filename):
     """
-    :param fl_count_filename: could be a single sample or multi-sample (chained) count file
+    :param fl_count_filename: could be a single sample or multi-sample (chained or demux) count file
     :return: list of samples, <dict>
 
     If single sample, returns True, dict of {pbid} -> {count}
     If multiple sample, returns False, dict of {pbid} -> {sample} -> {count}
+
+    For multi-sample, acceptable formats are:
+    //demux-based
+    id,JL3N,FL1N,CL1N,FL3N,CL3N,JL1N
+    PB.2.1,0,0,1,0,0,1
+    PB.3.3,33,14,47,24,15,38
+    PB.3.2,2,1,0,0,0,1
+
+    //chain-based
+    superPBID<tab>sample1<tab>sample2
     """
     fl_count_dict = {}
     samples = ['NA']
@@ -1333,17 +1345,34 @@ def FLcount_parser(fl_count_filename):
         cur_pos = f.tell()
         line = f.readline()
         if not line.startswith('#'):
+            # if it first thing is superPBID or id or pbid
+            if line.startswith('pbid'):
+                type = 'SINGLE_SAMPLE'
+                sep  = '\t'
+            elif line.startswith('superPBID'):
+                type = 'MULTI_CHAIN'
+                sep = '\t'
+            elif line.startswith('id'):
+                type = 'MULTI_DEMUX'
+                sep = ','
+            else:
+                raise Exception, "Unexpected count file format! Abort!"
             f.seek(cur_pos)
             break
-    reader = DictReader(f, delimiter='\t')
+
+
+    reader = DictReader(f, delimiter=sep)
     count_header = reader.fieldnames
-    if 'pbid' in reader.fieldnames: # single sample
+    if type=='SINGLE_SAMPLE':
         if 'count_fl' not in count_header:
             print >> sys.stderr, "Expected `count_fl` field in count file {0}. Abort!".format(fl_count_filename)
             sys.exit(-1)
         d = dict((r['pbid'], r) for r in reader)
-    elif 'superPBID' in reader.fieldnames: # multi sample from chaining or demux
+    elif type=='MULTI_CHAIN':
         d = dict((r['superPBID'], r) for r in reader)
+        flag_single_sample = False
+    elif type=='MULTI_DEMUX':
+        d = dict((r['id'], r) for r in reader)
         flag_single_sample = False
     else:
         print >> sys.stderr, "Expected pbid or superPBID as a column in count file {0}. Abort!".format(fl_count_filename)
@@ -1359,14 +1388,16 @@ def FLcount_parser(fl_count_filename):
             fl_count_dict[k] = {}
             samples = v.keys()
             for sample,count in v.iteritems():
-                if sample!='superPBID':
+                if sample not in ('superPBID', 'id'):
                     fl_count_dict[k][sample] = int(count) if count!='NA' else 0
 
     samples.sort()
-    try:
+
+    if type=='MULTI_CHAIN':
         samples.remove('superPBID')
-    except:
-        pass
+    elif type=='MULTI_DEMUX':
+        samples.remove('id')
+
     return samples, fl_count_dict
 
 def run(args):
