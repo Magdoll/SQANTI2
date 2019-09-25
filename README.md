@@ -22,6 +22,7 @@ New features implemented in SQANTI2 not available in SQANTI:
 * <a href="#install">Setting up SQANTI2</a>
 * <a href="#input">Running SQANTI2 Classification</a>
    * <a href="#flcount">Single or Multi-Sample FL Count Plotting</a>
+   * <a href="#exp">Short Read Expression</a>
 * <a href="#filter">Filtering Isoforms using SQANTI2</a>
 * <a href="#explain">SQANTI2 Output Explanation</a>
    * <a href="#class">Classification Output Explanation</a>
@@ -189,6 +190,7 @@ Optionally:
 
 * FL count information. See <a href="#flcount">FL count section</a> to include Iso-Seq FL count information for each isoform.
 
+* Short read expression. See <a href="#exp">Short Read Expression section</a> to include short read expression (RSEM or Kallisto).
 
 ### Running SQANTI2 Classification
 
@@ -200,6 +202,7 @@ python sqanti_qc2.py [-t cpus] [--gtf] [--skipORF]
      [--cage_peak CAGE_PEAK_BED]
      [--polyA_motif_list POLYA_LIST]
      [--fl_count FL_COUNT]
+     [--expression EXPRESSION]
      [--aligner_choice=minimap2,deSALT]
      [--is_fusion]
      <input_fasta> <annotation_gtf> <genome_fasta>
@@ -291,6 +294,44 @@ FL_TPM(PB.X.Y,sample1) = ------------------------------------- x 10^6
 
 Two additional columns, `FL_TPM.<sample>` and `FL_TPM.<sample>_log10` will be added and output to a new classification file with the suffix `.classification_TPM.txt`.
 
+
+<a name="exp"/>
+
+### Short Read Expression
+
+Use `--expression` to optionally provide short read expression data. Two formats are supported.
+
+#### Kallisto Expression Input
+
+Kallisto expression files have the format:
+
+```
+target_id   length  eff_length  est_counts  tpm
+PB.1.1  1730    1447.8  0   0
+PB.1.3  1958    1675.8  0   0
+PB.2.1  213 54.454  0   0
+PB.2.2  352 126.515 0   0
+PB.3.1  153 40.3918 0   0
+PB.4.1  1660    1377.8  0   0
+PB.5.1  2767    2484.8  0   0
+```
+
+#### RSEM Expression Input
+
+RSEM expression files have the format:
+
+```
+transcript_id   gene_id length  effective_length        expected_count  TPM     FPKM    IsoPct  posterior_mean_count    posterior_standard
+_deviation_of_count     pme_TPM pme_FPKM        IsoPct_from_pme_TPM     TPM_ci_lower_bound      TPM_ci_upper_bound      FPKM_ci_lower_boun
+d       FPKM_ci_upper_bound
+PB.1.1  PB.1    1516    1369.11 8.00    0.05    0.22    100.00  8.00    0.00    0.06    0.25    100.00  0.0233365       0.0984532       0.
+0981584 0.413561
+PB.10.1 PB.10   1101    954.11  0.00    0.00    0.00    0.00    0.00    0.00    0.01    0.04    100.00  4.80946e-08     0.0283585       2.
+01809e-07       0.11905
+PB.100.1        PB.100  979     832.11  0.00    0.00    0.00    0.00    6.62    6.60    0.08    0.35    4.00    3.51054e-06     0.241555 1.47313e-05      1.01397
+PB.100.2        PB.100  226     81.11   20.18   2.26    9.47    100.00  16.84   5.20    1.99    8.36    96.00   0.559201        3.45703 2.
+34572   14.5141
+```
 
 <a name="filter"/>
 
@@ -391,13 +432,13 @@ The output `.classification.txt` has the following fields:
 17. `min_cov`: minimum junction coverage based on short read STAR junction output file. NA if no short read given.
 18. `min_cov_pos`: the junction that had the fewest coverage. NA if no short read data given.
 19. `sd_cov`: standard deviation of junction coverage counts from short read data. NA if no short read data given.
-20. `FL`: currently always NA. I will add back this information later.
+20. `FL` or `FL.<sample>`: FL count associated with this isoform per sample if `--fl_count` is provided, otherwise NA.
 21. `n_indels`: total number of indels based on alignment.
 22. `n_indels_junc`: number of junctions in this isoform that have alignment indels near the junction site (indicating potentially unreliable junctions).
 23. `bite`: TRUE if all junctions match reference junctions completely.
-24. `iso_exp`: currently always NA. I will add back this information later.
-25. `gene_exp`: currently always NA. I will add back this information later.
-26. `ratio_exp`: currently always NA. I will add back this information later.
+24. `iso_exp`: short read expression for this isoform if `--expression` is provided, otherwise NA.
+25. `gene_exp`: short read expression for the gene associated with this isoform (summing over all isoforms) if `--expression` is provided, otherwise NA.
+26. `ratio_exp`: ratio of `iso_exp` to `gene_exp` if `--expression` is provided, otherwise NA.
 27. `FSM_class`: ignore this field for now.
 28. `ORF_length`: predicted ORF length.
 29. `CDS_length`: predicted CDS length. 
