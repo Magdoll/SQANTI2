@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 11/12/2019
+Last Updated: 11/12/2019   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -95,7 +95,7 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 ### Python-related libraries
 
-* Python (2.7)
+* Python (3.7)
 * pysam
 * psutil
 * bx-python
@@ -115,8 +115,7 @@ I recommend using Anaconda which makes installing all the Python packages much e
 (1)  Here's the generic Anaconda installation for [Linux environment](http://docs.continuum.io/anaconda/install/#linux-install). Currently only Linux environment supported.
 
 ```
-bash ~/Downloads/Anaconda2-5.2.0-Linux-x86_64.sh
-export PATH=$HOME/anaconda5.2/bin:$PATH
+export PATH=$HOME/anacondaPy37/bin:$PATH
 conda -V
 conda update conda
 ```
@@ -124,7 +123,7 @@ conda update conda
 (2) Create a virutal environment. I will call it `anaCogent3`. Type `y` to agree to the interactive questions.
 
 ```
-conda create -n anaCogent3 python=2.7 anaconda
+conda create -n anaCogent3 python=3.7 anaconda
 source activate anaCogent3
 ```
 
@@ -142,14 +141,15 @@ conda install -n anaCogent3 psutil
 conda install -n anaCogent3 biopython
 conda install -n anaCogent3 -c bioconda bx-python
 conda install -n anaCogent3 -c bioconda bcbiogff
-```
-
-We also need to install [gtfToGenePred](https://bioconda.github.io/recipes/ucsc-gtftogenepred/README.html) and [gffread](https://bioconda.github.io/recipes/gffread/README.html).
-
-```
-conda install -n anaCogent3 -c bioconda ucsc-gtftogenepred openssl=1.0
 conda install -n anaCogent3 -c bioconda gffread
 ```
+
+We also need to install [gtfToGenePred](https://bioconda.github.io/recipes/ucsc-gtftogenepred/README.html) that seems to have some issues with Python 3.7 (or openssl). At this point, the easiest solution is to download it from [UCSC Download Page](http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/) and add the binary to your `$PATH` variable:
+
+```
+export PATH=$PATH:<path_to>/gtfToGenePred
+```
+
 
 If you don't already have [cDNA_Cupcake](https://github.com/Magdoll/cDNA_Cupcake/wiki/Cupcake-ToFU:-supporting-scripts-for-Iso-Seq-after-clustering-step#install) installed, you can do that now:
 
