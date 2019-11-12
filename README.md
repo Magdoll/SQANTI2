@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 09/24/2019
+Last Updated: 11/12/2019
 
 ## What is SQANTI2
 
@@ -32,6 +32,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2019.11.12 updated to versoin 5.0.0. Now works exclusively with Python 3.7!
 
 2019.09.24 updated to version 4.1. `sqanti_qc2.py` now supports `--fl_count` multi-sample with plotting.
 

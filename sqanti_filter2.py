@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '4.1'
+__version__ = '5.0.0'   # Python 3.7 syntax!
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
@@ -8,7 +8,6 @@ Only keep Iso-Seq isoforms if:
 The isoform is FSM, ISM, or NIC and (does not have intrapriming or has polyA_motif)
 The isoform is NNC, does not have intrapriming/or polyA motif, not RT-switching, and all junctions are either all canonical or short-read-supported
 The isoform is antisense, intergenic, genic, does not have intrapriming/or polyA motif, not RT-switching, and all junctions are either all canonical or short-read-supported
-
 """
 
 import os, sys, argparse, subprocess
@@ -23,7 +22,7 @@ RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
 RSCRIPT_REPORT = 'SQANTI_report2.R'
 
 if os.system(RSCRIPTPATH + " --version")!=0:
-    print >> sys.stderr, "Rscript executable not found! Abort!"
+    print("Rscript executable not found! Abort!", file=sys.stderr)
     sys.exit(-1)
 
 
@@ -86,13 +85,13 @@ def sqanti_filter_lite(args):
         else:
             fcsv.write("{0},{1}\n".format(r['isoform'], filter_msg))
 
-    print >> sys.stdout, "{0} isoforms read from {1}. {2} to be kept.".format(total_count, args.sqanti_class, len(seqids_to_keep))
+    print("{0} isoforms read from {1}. {2} to be kept.".format(total_count, args.sqanti_class, len(seqids_to_keep)), file=sys.stdout)
 
     for r in SeqIO.parse(open(args.isoforms), fafq_type):
         if r.id in seqids_to_keep:
             SeqIO.write(r, fout, fafq_type)
     fout.close()
-    print >> sys.stdout, "Output written to: {0}".format(fout.name)
+    print("Output written to: {0}".format(fout.name), file=sys.stdout)
 
 
     # write out a new .classification.txt, .junctions.txt
@@ -104,7 +103,7 @@ def sqanti_filter_lite(args):
         for r in reader:
             if r['isoform'] in seqids_to_keep:
                 writer.writerow(r)
-        print >> sys.stdout, "Output written to: {0}".format(f.name)
+        print("Output written to: {0}".format(f.name), file=sys.stdout)
 
     outputJuncPath = prefix + '.filtered_lite_junctions.txt'
     with open(outputJuncPath, 'w') as f:
@@ -114,40 +113,52 @@ def sqanti_filter_lite(args):
         for r in reader:
             if r['isoform'] in seqids_to_keep:
                 writer.writerow(r)
-        print >> sys.stdout, "Output written to: {0}".format(f.name)
-
-    outputSam = prefix + '.filtered_lite.sam'
-    with open(outputSam, 'w') as f:
-        reader = GMAPSAMReader(args.sam_file, True)
-        f.write(reader.header)
-        for r in reader:
-            if r.qID in seqids_to_keep:
-                f.write(r.record_line + '\n')
-        print >> sys.stdout, "Output written to: {0}".format(f.name)
+        print("Output written to: {0}".format(f.name), file=sys.stdout)
 
     outputGTF = prefix + '.filtered_lite.gtf'
     with open(outputGTF, 'w') as f:
         for r in collapseGFFReader(args.gtf_file):
             if r.seqid in seqids_to_keep:
                 write_collapseGFF_format(f, r)
-        print >> sys.stderr, "Output written to: {0}".format(f.name)
+        print("Output written to: {0}".format(f.name), file=sys.stdout)
 
 
-    print >> sys.stderr, "**** Generating SQANTI report...."
+    if args.sam is not None:
+        outputSam = prefix + '.filtered_lite.sam'
+        with open(outputSam, 'w') as f:
+            reader = GMAPSAMReader(args.sam, True)
+            f.write(reader.header)
+            for r in reader:
+                if r.qID in seqids_to_keep:
+                    f.write(r.record_line + '\n')
+            print("Output written to: {0}".format(f.name), file=sys.stdout)
+
+    if args.faa is not None:
+        outputFAA = prefix + '.filtered_lite.faa'
+        with open(outputFAA, 'w') as f:
+            for r in SeqIO.parse(open(args.faa), 'fasta'):
+                if r.id in seqids_to_keep:
+                    f.write(">{0}\n{1}\n".format(r.description, r.seq))
+        print("Output written to: {0}".format(f.name), file=sys.stdout)
+
+
+
+    print("**** Generating SQANTI report....", file=sys.stderr)
     cmd = RSCRIPTPATH + " {d}/{f} {c} {j}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath)
     if subprocess.check_call(cmd, shell=True)!=0:
-        print >> sys.stderr, "ERROR running command: {0}".format(cmd)
+        print("ERROR running command: {0}".format(cmd), file=sys.stderr)
         sys.exit(-1)
 
 
 
 def main():
 
-    parser = argparse.ArgumentParser(description="Filtering of Isoforms based on SQANTI attributes")
+    parser = argparse.ArgumentParser(description="Filtering of Isoforms based on SQANTI2 attributes")
     parser.add_argument('sqanti_class', help='\t\tSQANTI classification output file.')
-    parser.add_argument('isoforms', help='\t\tfasta/fastq isoform file to be filtered by SQANTI')
-    parser.add_argument('sam_file', help='\t\tSAM alignment of the input fasta/fastq')
+    parser.add_argument('isoforms', help='\t\tfasta/fastq isoform file to be filtered by SQANTI2')
     parser.add_argument('gtf_file', help='\t\tGTF of the input fasta/fastq')
+    parser.add_argument('--sam', help='\t\t(Optional) SAM alignment of the input fasta/fastq')
+    parser.add_argument('--faa', help="\t\t(Optional) ORF prediction faa file to be filtered by SQANTI2")
     parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.8)')
     parser.add_argument('-m',"--max_dist_to_known_end", type=int, default=50, help="\t\tMaximum distance to an annotated 3' end to preserve as a valid 3' end and not filter out (default: 50bp)")
     parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")
@@ -160,14 +171,26 @@ def main():
 
     args.sqanti_class = os.path.abspath(args.sqanti_class)
     if not os.path.isfile(args.sqanti_class):
-        print >> sys.stderr, "ERROR: {0} doesn't exist. Abort!".format(args.sqanti_class)
+        print("ERROR: {0} doesn't exist. Abort!".format(args.sqanti_class), file=sys.stderr)
         sys.exit(-1)
 
-    if args.isoforms is not None and not os.path.isfile(args.isoforms):
-        print >> sys.stderr, "ERROR: {0} doesn't exist. Abort!".format(args.isoforms)
+    if not os.path.exists(args.isoforms):
+        print("ERROR: {0} doesn't exist. Abort!".format(args.isoform), file=sys.stderr)
         sys.exit(-1)
 
-    print >> sys.stdout, "\nRunning SQANTI2 filtering...\n"
+    if not os.path.exists(args.gtf_file):
+        print("ERROR: {0} doesn't exist. Abort!".format(args.gtf_file), file=sys.stderr)
+        sys.exit(-1)
+
+    if args.sam is not None and not os.path.exists(args.sam):
+        print("ERROR: {0} doesn't exist. Abort!".format(args.sam), file=sys.stderr)
+        sys.exit(-1)
+
+    if args.faa is not None and not os.path.exists(args.faa):
+        print("ERROR: {0} doesn't exist. Abort!".format(args.faa), file=sys.stderr)
+        sys.exit(-1)
+
+    print("\nRunning SQANTI2 filtering...\n", file=sys.stdout)
 
     sqanti_filter_lite(args)
 

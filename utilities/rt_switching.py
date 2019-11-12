@@ -151,7 +151,7 @@ def checkForRepeatPat(seq_exon, seq_intron, min_match, allow_mismatch=True):
     #if seq_exon=='TAAATGTACAGG': pdb.set_trace()
     seedsize = int(min_match/2)
     n = len(seq_exon)
-    for i in xrange(n-seedsize+1):
+    for i in range(n-seedsize+1):
         seed = seq_exon[i:i+seedsize]
         offset = 0
         while True:
@@ -247,9 +247,9 @@ def get_parser():
     parser = argparse.ArgumentParser(description="Check splice junctions for possible RT switching")
     parser.add_argument('sjFilepath', type=str, help='file with splice junction information')
     parser.add_argument('mmfaFilepath', type=str, help='path to reference genome')
-    parser.add_argument("-m", "--min_match", type=int, default=8, choices=range(4, 11), help="Minimum number of bases required to match. Default: 8")
+    parser.add_argument("-m", "--min_match", type=int, default=8, choices=list(range(4, 11)), help="Minimum number of bases required to match. Default: 8")
     parser.add_argument("-a", "--allow_mismatch", default=False, action="store_true", help="Specify to allow 1 base mismatch in sequences (indels are not allowed)")
-    parser.add_argument("-w", "--wiggle_count", type=int, default=1, choices=range(0, 4), help="Number of bases allowed to wiggle on each side of ideal RTS sequence location. Default: 1")
+    parser.add_argument("-w", "--wiggle_count", type=int, default=1, choices=list(range(0, 4)), help="Number of bases allowed to wiggle on each side of ideal RTS sequence location. Default: 1")
     parser.add_argument("-t", "--include_type", default='a', choices=['a', 'c', 'n'], help="Type of splice junctions to include (a for all, c for canonical, and n for non-canonical). Default: a")
     parser.add_argument("-c", "--include_category", default='a', choices=['a', 'n', 'k'], help="Category of splice junctions to include (a for all, n for novel, and k for known). Default: a")
     parser.add_argument("-v", "--version", help="Display program version number", action='version', version='%(prog)s 0.1')
@@ -260,5 +260,5 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
 
-    print >> sys.stderr, "Reading genome fasta into dict..."
+    print("Reading genome fasta into dict...", file=sys.stderr)
     genome_dict = dict((r.id, r) for r in SeqIO.parse(open(args.mmfaFilepath), 'fasta'))

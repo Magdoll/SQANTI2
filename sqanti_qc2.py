@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '4.1'
+__version__ = '5.0.0'  # Python 3.7
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -27,19 +27,19 @@ try:
     from Bio import SeqIO
     from Bio.SeqRecord import SeqRecord
 except ImportError:
-    print >> sys.stderr, "Unable to import Biopython! Please make sure Biopython is installed."
+    print("Unable to import Biopython! Please make sure Biopython is installed.", file=sys.stderr)
     sys.exit(-1)
 
 try:
     from bx.intervals import Interval, IntervalTree
 except ImportError:
-    print >> sys.stderr, "Unable to import bx-python! Please make sure bx-python is installed."
+    print("Unable to import bx-python! Please make sure bx-python is installed.", file=sys.stderr)
     sys.exit(-1)
 
 try:
     from BCBio import GFF as BCBio_GFF
 except ImportError:
-    print >> sys.stderr, "Unable to import BCBio! Please make sure bcbiogff is installed."
+    print("Unable to import BCBio! Please make sure bcbiogff is installed.", file=sys.stderr)
     sys.exit(-1)
 
 try:
@@ -49,7 +49,7 @@ try:
     from BED import LazyBEDPointReader
     import coordinate_mapper as cordmap
 except ImportError:
-    print >> sys.stderr, "Unable to import err_correct_w_genome or sam_to_gff3.py! Please make sure cDNA_Cupcake/sequence/ is in $PYTHONPATH."
+    print("Unable to import err_correct_w_genome or sam_to_gff3.py! Please make sure cDNA_Cupcake/sequence/ is in $PYTHONPATH.", file=sys.stderr)
     sys.exit(-1)
 
 try:
@@ -58,14 +58,14 @@ try:
     from cupcake.io.BioReaders import GMAPSAMReader
     from cupcake.io.GFF import collapseGFFReader, write_collapseGFF_format
 except ImportError:
-    print >> sys.stderr, "Unable to import cupcake.tofu! Please make sure you install cupcake."
+    print("Unable to import cupcake.tofu! Please make sure you install cupcake.", file=sys.stderr)
     sys.exit(-1)
 
 # check cupcake version
 import cupcake
-v1, v2 = map(int, cupcake.__version__.split('.'))
+v1, v2 = [int(x) for x in cupcake.__version__.split('.')]
 if v1 < 8 or v2 < 6:
-    print sys.stderr, "Cupcake version must be 8.6 or higher! Got {0} instead.".format(cupcake.__version__)
+    print("Cupcake version must be 8.6 or higher! Got {0} instead.".format(cupcake.__version__), file=sys.stderr)
     sys.exit(-1)
 
 
@@ -81,10 +81,10 @@ GTF2GENEPRED_PROG = "gtfToGenePred"
 GFFREAD_PROG = "gffread"
 
 if distutils.spawn.find_executable(GTF2GENEPRED_PROG) is None:
-    print >> sys.stderr, "Cannot find executable {0}. Abort!".format(GTF2GENEPRED_PROG)
+    print("Cannot find executable {0}. Abort!".format(GTF2GENEPRED_PROG), file=sys.stderr)
     sys.exit(-1)
 if distutils.spawn.find_executable(GFFREAD_PROG) is None:
-    print >> sys.stderr, "Cannot find executable {0}. Abort!".format(GFFREAD_PROG)
+    print("Cannot find executable {0}. Abort!".format(GFFREAD_PROG), file=sys.stderr)
     sys.exit(-1)
 
 
@@ -115,7 +115,7 @@ RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
 RSCRIPT_REPORT = 'SQANTI_report2.R'
 
 if os.system(RSCRIPTPATH + " --version")!=0:
-    print >> sys.stderr, "Rscript executable not found! Abort!"
+    print("Rscript executable not found! Abort!", file=sys.stderr)
     sys.exit(-1)
 
 
@@ -126,7 +126,7 @@ class genePredReader(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         line = self.f.readline().strip()
         if len(line) == 0:
             raise StopIteration
@@ -155,7 +155,7 @@ class genePredRecord(object):
             self.exons.append(Interval(s, e))
 
         # junctions are stored (1-based last base of prev exon, 1-based first base of next exon)
-        self.junctions = [(self.exonEnds[i],self.exonStarts[i+1]) for i in xrange(self.exonCount-1)]
+        self.junctions = [(self.exonEnds[i],self.exonStarts[i+1]) for i in range(self.exonCount-1)]
 
     @property
     def segments(self):
@@ -173,8 +173,8 @@ class genePredRecord(object):
                   cdsStart=int(raw[5]),
                   cdsEnd=int(raw[6]),
                   exonCount=int(raw[7]),
-                  exonStarts=map(int, raw[8][:-1].split(',')),  #exonStarts string has extra , at end
-                  exonEnds=map(int, raw[9][:-1].split(',')),     #exonEnds string has extra , at end
+                  exonStarts=[int(x) for x in raw[8][:-1].split(',')],  #exonStarts string has extra , at end
+                  exonEnds=[int(x) for x in raw[9][:-1].split(',')],     #exonEnds string has extra , at end
                   gene=raw[11] if len(raw)>=12 else None,
                   )
 
@@ -352,7 +352,7 @@ class myQueryTranscripts:
          'polyA_motif': self.polyA_motif,
          'polyA_dist': self.polyA_dist
          }
-        for sample,count in self.FL_dict.iteritems():
+        for sample,count in self.FL_dict.items():
             d["FL."+sample] = count
         return d
 
@@ -377,7 +377,7 @@ def rewrite_sam_for_fusion_ids(sam_filename):
         else:
             raw = line.strip().split('\t')
             if not raw[0].startswith('PBfusion.'):
-                print >> sys.stderr, "Expecting fusion ID format `PBfusion.X` but saw {0} instead. Abort!".format(raw[0])
+                print("Expecting fusion ID format `PBfusion.X` but saw {0} instead. Abort!".format(raw[0]), file=sys.stderr)
                 sys.exit(-1)
             seen_id_counter[raw[0]] += 1
             raw[0] = raw[0] + '.' + str(seen_id_counter[raw[0]])
@@ -398,7 +398,8 @@ def write_collapsed_GFF_with_CDS(isoforms_info, input_gff, output_gff):
     with open(output_gff, 'w') as f:
         reader = collapseGFFReader(input_gff)
         for r in reader:
-            r.geneid = isoforms_info[r.seqid].geneName()
+            r.geneid = isoforms_info[r.seqid].geneName()  # set the gene name
+
             s = isoforms_info[r.seqid].CDS_genomic_start  # could be 'NA'
             e = isoforms_info[r.seqid].CDS_genomic_end    # could be 'NA'
             r.cds_exons = []
@@ -438,14 +439,14 @@ def correctionPlusORFpred(args, genome_dict):
     # Step 1. IF GFF or GTF is provided, make it into a genome-based fasta
     #         IF sequence is provided, align as SAM then correct with genome
     if os.path.exists(corrFASTA):
-        print >> sys.stderr, "Error corrected FASTA {0} already exists. Using it...".format(corrFASTA)
+        print("Error corrected FASTA {0} already exists. Using it...".format(corrFASTA), file=sys.stderr)
     else:
         if not args.gtf:
             if os.path.exists(corrSAM):
-                print >> sys.stderr, "Aligned SAM {0} already exists. Using it...".format(corrSAM)
+                print("Aligned SAM {0} already exists. Using it...".format(corrSAM), file=sys.stderr)
             else:
                 if args.aligner_choice == "gmap":
-                    print >> sys.stdout, "****Aligning reads with GMAP..."
+                    print("****Aligning reads with GMAP...", file=sys.stdout)
                     cmd = GMAP_CMD.format(cpus=args.gmap_threads,
                                           dir=os.path.dirname(args.gmap_index),
                                           name=os.path.basename(args.gmap_index),
@@ -453,20 +454,20 @@ def correctionPlusORFpred(args, genome_dict):
                                           i=args.isoforms,
                                           o=corrSAM)
                 elif args.aligner_choice == "minimap2":
-                    print >> sys.stdout, "****Aligning reads with Minimap2..."
+                    print("****Aligning reads with Minimap2...", file=sys.stdout)
                     cmd = MINIMAP2_CMD.format(cpus=args.gmap_threads,
                                               sense=args.sense,
                                               g=args.genome,
                                               i=args.isoforms,
                                               o=corrSAM)
                 elif args.aligner_choice == "deSALT":
-                    print >> sys.stdout, "****Aligning reads with deSALT..."
+                    print("****Aligning reads with deSALT...", file=sys.stdout)
                     cmd = DESALT_CMD.format(cpus=args.gmap_threads,
                                             dir=args.gmap_index,
                                             i=args.isoforms,
                                             o=corrSAM)
                 if subprocess.check_call(cmd, shell=True)!=0:
-                    print >> sys.stderr, "ERROR running alignment cmd: {0}".format(cmd)
+                    print("ERROR running alignment cmd: {0}".format(cmd), file=sys.stderr)
                     sys.exit(-1)
 
             # if is fusion - go in and change the IDs to reflect PBfusion.X.1, PBfusion.X.2...
@@ -478,10 +479,10 @@ def correctionPlusORFpred(args, genome_dict):
             convert_sam_to_gff3(corrSAM, corrGTF+'.tmp', source=os.path.basename(args.genome).split('.')[0])  # convert SAM to GFF3
             cmd = "{p} {o}.tmp -T -o {o}".format(o=corrGTF, p=GFFREAD_PROG)
             if subprocess.check_call(cmd, shell=True)!=0:
-                print >> sys.stderr, "ERROR running cmd: {0}".format(cmd)
+                print("ERROR running cmd: {0}".format(cmd), file=sys.stderr)
                 sys.exit(-1)
         else:
-            print >> sys.stdout, "Skipping aligning of sequences because GTF file was provided."
+            print("Skipping aligning of sequences because GTF file was provided.", file=sys.stdout)
 
             ind = 0
             with open(args.isoforms, 'r') as isoforms_gtf:
@@ -492,7 +493,7 @@ def correctionPlusORFpred(args, genome_dict):
                     elif len(line.split("\t"))==9:
                         ind += 1
                 if ind == 0:
-                    print >> sys.stderr, "WARNING: GTF has {0} no annotation lines.".format(args.isoforms)
+                    print("WARNING: GTF has {0} no annotation lines.".format(args.isoforms), file=sys.stderr)
 
 
             # GFF to GTF (in case the user provides gff instead of gtf)
@@ -511,7 +512,7 @@ def correctionPlusORFpred(args, genome_dict):
                         if line[0] != "#":
                             chrom = line.split("\t")[0]
                             type = line.split("\t")[2]
-                            if chrom not in genome_dict.keys():
+                            if chrom not in list(genome_dict.keys()):
                                 sys.stderr.write("\nERROR: gtf \"%s\" chromosome not found in genome reference file.\n" % (chrom))
                                 sys.exit()
                             elif type in ('transcript', 'exon'):
@@ -525,7 +526,7 @@ def correctionPlusORFpred(args, genome_dict):
             subprocess.call([GFFREAD_PROG, corrGTF, '-g', args.genome, '-w', corrFASTA])
 
     # ORF generation
-    print >> sys.stdout, "**** Predicting ORF sequences..."
+    print("**** Predicting ORF sequences...", file=sys.stdout)
 
     gmst_dir = os.path.join(args.dir, "GMST")
     gmst_pre = os.path.join(gmst_dir, "GMST_tmp")
@@ -537,14 +538,14 @@ def correctionPlusORFpred(args, genome_dict):
     gmst_rex = re.compile('(\S+\t\S+\|GeneMark.hmm)\|(\d+)_aa\|(\S)\|(\d+)\|(\d+)')
     orfDict = {}  # GMST seq id --> myQueryProteins object
     if args.skipORF:
-        print >> sys.stderr, "WARNING: Skipping ORF prediction because user requested it. All isoforms will be non-coding!"
+        print("WARNING: Skipping ORF prediction because user requested it. All isoforms will be non-coding!", file=sys.stderr)
     elif os.path.exists(corrORF):
-        print >> sys.stderr, "ORF file {0} already exists. Using it....".format(corrORF)
+        print("ORF file {0} already exists. Using it....".format(corrORF), file=sys.stderr)
         for r in SeqIO.parse(open(corrORF), 'fasta'):
             # now process ORFs into myQueryProtein objects
             m = gmst_rex.match(r.description)
             if m is None:
-                print >> sys.stderr, "Expected GMST output IDs to be of format '<pbid> gene_4|GeneMark.hmm|<orf>_aa|<strand>|<cds_start>|<cds_end>' but instead saw: {0}! Abort!".format(r.description)
+                print("Expected GMST output IDs to be of format '<pbid> gene_4|GeneMark.hmm|<orf>_aa|<strand>|<cds_start>|<cds_end>' but instead saw: {0}! Abort!".format(r.description), file=sys.stderr)
                 sys.exit(-1)
             orf_length = int(m.group(2))
             cds_start = int(m.group(4))
@@ -553,14 +554,14 @@ def correctionPlusORFpred(args, genome_dict):
     else:
         cmd = GMST_CMD.format(i=corrFASTA, o=gmst_pre)
         if subprocess.check_call(cmd, shell=True, cwd=gmst_dir)!=0:
-            print >> sys.stderr, "ERROR running GMST cmd: {0}".format(cmd)
+            print("ERROR running GMST cmd: {0}".format(cmd), file=sys.stderr)
             sys.exit(-1)
         # Modifying ORF sequences by removing sequence before ATG
         with open(corrORF, "w") as f:
             for r in SeqIO.parse(open(gmst_pre+'.faa'), 'fasta'):
                 m = gmst_rex.match(r.description)
                 if m is None:
-                    print >> sys.stderr, "Expected GMST output IDs to be of format '<pbid> gene_4|GeneMark.hmm|<orf>_aa|<strand>|<cds_start>|<cds_end>' but instead saw: {0}! Abort!".format(r.description)
+                    print("Expected GMST output IDs to be of format '<pbid> gene_4|GeneMark.hmm|<orf>_aa|<strand>|<cds_start>|<cds_end>' but instead saw: {0}! Abort!".format(r.description), file=sys.stderr)
                     sys.exit(-1)
                 id_pre = m.group(1)
                 orf_length = int(m.group(2))
@@ -582,7 +583,7 @@ def correctionPlusORFpred(args, genome_dict):
                     f.write(">{0}\n{1}\n".format(new_rec.description, new_rec.seq))
 
     if len(orfDict) == 0:
-        print >> sys.stderr, "WARNING: All input isoforms were predicted as non-coding"
+        print("WARNING: All input isoforms were predicted as non-coding", file=sys.stderr)
 
     return(orfDict)
 
@@ -597,10 +598,10 @@ def reference_parser(args, genome_chroms):
     global referenceFiles
 
     referenceFiles = os.path.join(args.dir, "refAnnotation_"+args.output+".genePred")
-    print >> sys.stdout, "**** Parsing Reference Transcriptome...."
+    print("**** Parsing Reference Transcriptome....", file=sys.stdout)
 
     if os.path.exists(referenceFiles):
-        print >> sys.stdout, "{0} already exists. Using it.".format(referenceFiles)
+        print("{0} already exists. Using it.".format(referenceFiles), file=sys.stdout)
     else:
         ## gtf to genePred
         if not args.geneid:
@@ -639,10 +640,10 @@ def reference_parser(args, genome_chroms):
             known_5_3_by_gene[r.gene]['end'].add(r.txEnd)
 
     # check that all genes' chromosomes are in the genome file
-    ref_chroms = set(refs_1exon_by_chr.keys()).union(refs_exons_by_chr.keys())
+    ref_chroms = set(refs_1exon_by_chr.keys()).union(list(refs_exons_by_chr.keys()))
     diff = ref_chroms.difference(genome_chroms)
     if len(diff) > 0:
-        print >> sys.stderr, "WARNING: ref annotation contains chromosomes not in genome: {0}\n".format(",".join(diff))
+        print("WARNING: ref annotation contains chromosomes not in genome: {0}\n".format(",".join(diff)), file=sys.stderr)
 
     # convert the content of junctions_by_chr to sorted list
     for k in junctions_by_chr:
@@ -663,13 +664,13 @@ def isoforms_parser(args):
     global queryFile
     queryFile = os.path.splitext(corrGTF)[0] +".genePred"
 
-    print >> sys.stderr, "**** Parsing Isoforms...."
+    print("**** Parsing Isoforms....", file=sys.stderr)
 
     # gtf to genePred
     cmd = GTF2GENEPRED_PROG + " {0} {1} -genePredExt -allErrors -ignoreGroupsWithoutExons".format(\
         corrGTF, queryFile)
     if subprocess.check_call(cmd, shell=True)!=0:
-        print >> sys.stderr, "ERROR running cmd: {0}".format(cmd)
+        print("ERROR running cmd: {0}".format(cmd), file=sys.stderr)
         sys.exit(-1)
 
 
@@ -691,8 +692,8 @@ def STARcov_parser(coverageFiles): # just valid with unstrand-specific RNA-seq p
     """
     cov_files = glob.glob(coverageFiles)
 
-    print >> sys.stderr, "Input pattern: {0}. The following files found and to be read as junctions:\n{1}".format(\
-        coverageFiles, "\n".join(cov_files) )
+    print("Input pattern: {0}. The following files found and to be read as junctions:\n{1}".format(\
+        coverageFiles, "\n".join(cov_files) ), file=sys.stderr)
 
     cov_by_chrom_strand = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: 0)))
     undefined_strand_count = 0
@@ -710,7 +711,7 @@ def STARcov_parser(coverageFiles): # just valid with unstrand-specific RNA-seq p
             else:
                 cov_by_chrom_strand[(r.chrom, r.strand)][(r.start, r.end)][prefix] = r.unique_count + r.multi_count
             all_read += 1
-    print >> sys.stderr, "{0} junctions read. {1} junctions added to both strands because no strand information from STAR.".format(all_read, undefined_strand_count)
+    print("{0} junctions read. {1} junctions added to both strands because no strand information from STAR.".format(all_read, undefined_strand_count), file=sys.stderr)
 
     return samples, cov_by_chrom_strand
 
@@ -725,13 +726,13 @@ def expression_parser(expressionFile):
     reader = DictReader(open(expressionFile), delimiter='\t')
 
     if all(k in reader.fieldnames for k in EXP_KALLISTO_HEADERS):
-        print >> sys.stderr, "Detected Kallisto expression format. Using 'target_id' and 'tpm' field."
+        print("Detected Kallisto expression format. Using 'target_id' and 'tpm' field.", file=sys.stderr)
         name_id, name_tpm = 'target_id', 'tpm'
     elif all(k in reader.fieldnames for k in EXP_RSEM_HEADERS):
-        print >> sys.stderr, "Detected RSEM expression format. Using 'transcript_id' and 'TPM' field."
+        print("Detected RSEM expression format. Using 'transcript_id' and 'TPM' field.", file=sys.stderr)
         name_id, name_tpm = 'transcript_id', 'TPM'
     else:
-        print >> sys.stderr, "Expected Kallisto or RSEM file format from {0}. Abort!".format(expressionFile)
+        print("Expected Kallisto or RSEM file format from {0}. Abort!".format(expressionFile), file=sys.stderr)
 
     exp_dict = {}
 
@@ -845,7 +846,7 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
             match_type = compare_junctions(trec, ref, internal_fuzzy_max_dist=0, max_5_diff=999999, max_3_diff=999999)
 
             if match_type not in ('exact', 'subset', 'partial', 'concordant', 'super', 'nomatch'):
-                raise Exception, "Unknown match category {0}!".format(match_type)
+                raise Exception("Unknown match category {0}!".format(match_type))
 
             diff_tss, diff_tts = get_diff_tss_tts(trec, ref)
 
@@ -1020,7 +1021,7 @@ def novelIsoformsKnownGenes(isoforms_hit, trec, junctions_by_chr, junctions_by_g
         junction_ref_hit = dict((i, all_ref_junctions.count(junc)) for i,junc in enumerate(trec.junctions))
 
         # if the same query junction appears in more than one of the hit references, it is not a fusion
-        if max(junction_ref_hit.itervalues()) > 1:
+        if max(junction_ref_hit.values()) > 1:
             isoforms_hit.str_class = "moreJunctions"
         else:
             isoforms_hit.str_class = "fusion"
@@ -1052,7 +1053,7 @@ def associationOverlapping(isoforms_hit, trec, junctions_by_chr):
             # no hit even on opp strand
             # see if it is completely contained within a junction
             da_pairs = junctions_by_chr[trec.chrom]['da_pairs']
-            i = bisect.bisect_left((trec.txStart, trec.txEnd), da_pairs)
+            i = bisect.bisect_left(da_pairs, (trec.txStart, trec.txEnd))
             while i < len(da_pairs) and da_pairs[i][0] <= trec.txStart:
                 if da_pairs[i][0] <= trec.txStart <= trec.txStart <= da_pairs[i][1]:
                     isoforms_hit.str_class = "genic_intron"
@@ -1125,9 +1126,9 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
         # if phyloP score dict exists, give the triplet score of (last base in donor exon), donor site -- similarly for acceptor
         phyloP_start, phyloP_end = 'NA', 'NA'
         if phyloP_reader is not None:
-            phyloP_start = ",".join(map(str, [phyloP_reader.get_pos(trec.chrom, d-1), phyloP_reader.get_pos(trec.chrom, d), phyloP_reader.get_pos(trec.chrom, d+1)]))
-            phyloP_end = ",".join(map(str, [phyloP_reader.get_pos(trec.chrom, a-1), phyloP_reader.get_pos(trec.chrom, a),
-                                              phyloP_reader.get_pos(trec.chrom, a+1)]))
+            phyloP_start = ",".join([str(x) for x in [phyloP_reader.get_pos(trec.chrom, d-1), phyloP_reader.get_pos(trec.chrom, d), phyloP_reader.get_pos(trec.chrom, d+1)]])
+            phyloP_end = ",".join([str(x) for x in [phyloP_reader.get_pos(trec.chrom, a-1), phyloP_reader.get_pos(trec.chrom, a),
+                                              phyloP_reader.get_pos(trec.chrom, a+1)]])
 
         qj = {'isoform': trec.id,
               'junction_number': "junction_"+str(junction_index+1),
@@ -1148,8 +1149,8 @@ def write_junctionInfo(trec, junctions_by_chr, accepted_canonical_sites, indelIn
               "indel_near_junct": indel_near_junction,
               "phyloP_start": phyloP_start,
               "phyloP_end": phyloP_end,
-              "sample_with_cov": sum(cov!=0 for cov in sample_cov.itervalues()) if covInf is not None else "NA",
-              "total_coverage": sum(sample_cov.itervalues()) if covInf is not None else "NA"}
+              "sample_with_cov": sum(cov!=0 for cov in sample_cov.values()) if covInf is not None else "NA",
+              "total_coverage": sum(sample_cov.values()) if covInf is not None else "NA"}
 
         if covInf is not None:
             for sample in covNames:
@@ -1163,28 +1164,28 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
     ## read coverage files if provided
 
     if args.coverage is not None:
-        print >> sys.stdout, "**** Reading Splice Junctions coverage files."
+        print("**** Reading Splice Junctions coverage files.", file=sys.stdout)
         SJcovNames, SJcovInfo = STARcov_parser(args.coverage)
         fields_junc_cur = FIELDS_JUNC + SJcovNames # add the samples to the header
     else:
         SJcovNames, SJcovInfo = None, None
-        print >> sys.stdout, "Splice Junction Coverage files not provided."
+        print("Splice Junction Coverage files not provided.", file=sys.stdout)
         fields_junc_cur = FIELDS_JUNC
 
     if args.cage_peak is not None:
-        print >> sys.stdout, "**** Reading CAGE Peak data."
+        print("**** Reading CAGE Peak data.", file=sys.stdout)
         cage_peak_obj = CAGEPeak(args.cage_peak)
     else:
         cage_peak_obj = None
 
 
     if args.polyA_motif_list is not None:
-        print >> sys.stdout, "**** Reading PolyA motif list."
+        print("**** Reading PolyA motif list.", file=sys.stdout)
         polyA_motif_list = []
         for line in open(args.polyA_motif_list):
             x = line.strip().upper().replace('U', 'A')
             if any(s not in ('A','T','C','G') for s in x):
-                print >> sys.stderr, "PolyA motif must be A/T/C/G only! Saw: {0}. Abort!".format(x)
+                print("PolyA motif must be A/T/C/G only! Saw: {0}. Abort!".format(x), file=sys.stderr)
                 sys.exit(-1)
             polyA_motif_list.append(x)
     else:
@@ -1192,13 +1193,13 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
 
 
     if args.phyloP_bed is not None:
-        print >> sys.stdout, "**** Reading PhyloP BED file."
+        print("**** Reading PhyloP BED file.", file=sys.stdout)
         phyloP_reader = LazyBEDPointReader(args.phyloP_bed)
     else:
         phyloP_reader = None
 
     # running classification
-    print >> sys.stdout, "**** Performing Classification of Isoforms...."
+    print("**** Performing Classification of Isoforms....", file=sys.stdout)
 
 
     accepted_canonical_sites = list(args.sites.split(","))
@@ -1216,7 +1217,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
     isoforms_info = {}
     novel_gene_index = 1
 
-    for chrom,records in isoforms_by_chr.iteritems():
+    for chrom,records in isoforms_by_chr.items():
         for rec in records:
             # Find best reference hit
             isoform_hit = transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends_by_gene, rec, genome_dict, nPolyA=args.window)
@@ -1266,13 +1267,13 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 if rec.strand == '+':
                     i = 0
                     for exon in rec.exons:
-                        for c in xrange(exon.start, exon.end):
+                        for c in range(exon.start, exon.end):
                             m[i] = c
                             i += 1
                 else: # - strand
                     i = 0
                     for exon in rec.exons:
-                        for c in xrange(exon.start, exon.end):
+                        for c in range(exon.start, exon.end):
                             m[rec.length-i-1] = c
                             i += 1
 
@@ -1356,7 +1357,7 @@ def FLcount_parser(fl_count_filename):
                 type = 'MULTI_DEMUX'
                 sep = ','
             else:
-                raise Exception, "Unexpected count file format! Abort!"
+                raise Exception("Unexpected count file format! Abort!")
             f.seek(cur_pos)
             break
 
@@ -1365,7 +1366,7 @@ def FLcount_parser(fl_count_filename):
     count_header = reader.fieldnames
     if type=='SINGLE_SAMPLE':
         if 'count_fl' not in count_header:
-            print >> sys.stderr, "Expected `count_fl` field in count file {0}. Abort!".format(fl_count_filename)
+            print("Expected `count_fl` field in count file {0}. Abort!".format(fl_count_filename), file=sys.stderr)
             sys.exit(-1)
         d = dict((r['pbid'], r) for r in reader)
     elif type=='MULTI_CHAIN':
@@ -1375,19 +1376,19 @@ def FLcount_parser(fl_count_filename):
         d = dict((r['id'], r) for r in reader)
         flag_single_sample = False
     else:
-        print >> sys.stderr, "Expected pbid or superPBID as a column in count file {0}. Abort!".format(fl_count_filename)
+        print("Expected pbid or superPBID as a column in count file {0}. Abort!".format(fl_count_filename), file=sys.stderr)
         sys.exit(-1)
     f.close()
 
 
     if flag_single_sample: # single sample
-        for k,v in d.iteritems():
+        for k,v in d.items():
             fl_count_dict[k] = int(v['count_fl'])
     else: # multi-sample
-        for k,v in d.iteritems():
+        for k,v in d.items():
             fl_count_dict[k] = {}
-            samples = v.keys()
-            for sample,count in v.iteritems():
+            samples = list(v.keys())
+            for sample,count in v.items():
                 if sample not in ('superPBID', 'id'):
                     fl_count_dict[k][sample] = int(count) if count!='NA' else 0
 
@@ -1404,9 +1405,9 @@ def run(args):
 
     start3 = timeit.default_timer()
 
-    print >> sys.stdout, "**** Parsing provided files...."
+    print("**** Parsing provided files....", file=sys.stdout)
 
-    print >> sys.stdout, "Reading genome fasta {0}....".format(args.genome)
+    print("Reading genome fasta {0}....".format(args.genome), file=sys.stdout)
     # NOTE: can't use LazyFastaReader because inefficient. Bring the whole genome in!
     genome_dict = dict((r.name, r) for r in SeqIO.parse(open(args.genome), 'fasta'))
 
@@ -1414,7 +1415,7 @@ def run(args):
     orfDict = correctionPlusORFpred(args, genome_dict)
 
     ## parse reference id (GTF) to dicts
-    refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene = reference_parser(args, genome_dict.keys())
+    refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene = reference_parser(args, list(genome_dict.keys()))
 
     ## parse query isoforms
     isoforms_by_chr = isoforms_parser(args)
@@ -1431,7 +1432,7 @@ def run(args):
     # isoform classification + intra-priming + id and junction characterization
     isoforms_info = isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_by_chr, junctions_by_chr, junctions_by_gene, start_ends_by_gene, genome_dict, indelsJunc, orfDict)
 
-    print >> sys.stdout, "Number of classified isoforms: {0}".format(len(isoforms_info))
+    print("Number of classified isoforms: {0}".format(len(isoforms_info)), file=sys.stdout)
 
     write_collapsed_GFF_with_CDS(isoforms_info, corrGTF, corrGTF+'.cds.gff')
 
@@ -1440,7 +1441,7 @@ def run(args):
     outputJuncPath = outputPathPrefix + "_junctions.txt"
 
     ## RT-switching computation
-    print >> sys.stderr, "**** RT-switching computation...."
+    print("**** RT-switching computation....", file=sys.stderr)
 
     # RTS_info: dict of (pbid) -> list of RT junction. if RTS_info[pbid] == [], means all junctions are non-RT.
     RTS_info = rts([outputJuncPath+"_tmp", args.genome, "-a"], genome_dict)
@@ -1461,43 +1462,43 @@ def run(args):
     ## FL count file
     if args.fl_count:
         if not os.path.exists(args.fl_count):
-            print >> sys.stderr, "FL count file {0} does not exist!".format(args.fl_count)
+            print("FL count file {0} does not exist!".format(args.fl_count), file=sys.stderr)
             sys.exit(-1)
-        print >> sys.stderr, "**** Reading Full-length read abundance files..."
+        print("**** Reading Full-length read abundance files...", file=sys.stderr)
         fl_samples, fl_count_dict = FLcount_parser(args.fl_count)
         for pbid in fl_count_dict:
             if pbid not in isoforms_info:
-                print >> sys.stderr, "WARNING: {0} found in FL count file but not in input fasta.".format(pbid)
+                print("WARNING: {0} found in FL count file but not in input fasta.".format(pbid), file=sys.stderr)
         if len(fl_samples) == 1: # single sample from PacBio
-            print >> sys.stderr, "Single-sample PacBio FL count format detected."
+            print("Single-sample PacBio FL count format detected.", file=sys.stderr)
             for iso in isoforms_info:
                 if iso in fl_count_dict:
                     isoforms_info[iso].FL = fl_count_dict[iso]
                 else:
-                    print >> sys.stderr, "WARNING: {0} not found in FL count file. Assign count as 0.".format(iso)
+                    print("WARNING: {0} not found in FL count file. Assign count as 0.".format(iso), file=sys.stderr)
                     isoforms_info[iso].FL = 0
         else: # multi-sample
-            print >> sys.stderr, "Multi-sample PacBio FL count format detected."
+            print("Multi-sample PacBio FL count format detected.", file=sys.stderr)
             fields_class_cur = FIELDS_CLASS + ["FL."+s for s in fl_samples]
             for iso in isoforms_info:
                 if iso in fl_count_dict:
                     isoforms_info[iso].FL_dict = fl_count_dict[iso]
                 else:
-                    print >> sys.stderr, "WARNING: {0} not found in FL count file. Assign count as 0.".format(iso)
+                    print("WARNING: {0} not found in FL count file. Assign count as 0.".format(iso), file=sys.stderr)
                     isoforms_info[iso].FL_dict = defaultdict(lambda: 0)
     else:
-        print >> sys.stderr, "Full-length read abundance files not provided."
+        print("Full-length read abundance files not provided.", file=sys.stderr)
 
 
     ## Isoform expression information
     if args.expression:
-        print >> sys.stderr, "**** Reading Isoform Expression Information."
+        print("**** Reading Isoform Expression Information.", file=sys.stderr)
         exp_dict = expression_parser(args.expression)
         gene_exp_dict = {}
         for iso in isoforms_info:
             if iso not in exp_dict:
                 exp_dict[iso] = 0
-                print >> sys.stderr, "WARNING: isoform {0} not found in expression matrix. Assigning TPM of 0.".format(iso)
+                print("WARNING: isoform {0} not found in expression matrix. Assigning TPM of 0.".format(iso), file=sys.stderr)
             gene = isoforms_info[iso].geneName()
             if gene not in gene_exp_dict:
                 gene_exp_dict[gene] = exp_dict[iso]
@@ -1506,7 +1507,7 @@ def run(args):
     else:
         exp_dict = None
         gene_exp_dict = None
-        print >> sys.stderr, "Isoforms expression files not provided."
+        print("Isoforms expression files not provided.", file=sys.stderr)
 
 
     ## Adding indel, FSM class and expression information
@@ -1572,15 +1573,15 @@ def run(args):
                 isoforms_info[r['isoform']].min_cov_pos = r['junction_number']
 
 
-    for pbid, covs in sj_covs_by_isoform.iteritems():
+    for pbid, covs in sj_covs_by_isoform.items():
         isoforms_info[pbid].sd = pstdev(covs)
 
     #### Printing output file:
 
-    print >> sys.stderr, "**** Writing output files...."
+    print("**** Writing output files....", file=sys.stderr)
 
     # sort isoform keys
-    iso_keys = isoforms_info.keys()
+    iso_keys = list(isoforms_info.keys())
     iso_keys.sort(key=lambda x: (isoforms_info[x].chrom,isoforms_info[x].id))
     with open(outputClassPath, 'w') as h:
         fout_class = DictWriter(h, fieldnames=fields_class_cur, delimiter='\t')
@@ -1602,19 +1603,19 @@ def run(args):
 
     ## Generating report
 
-    print >> sys.stderr, "**** Generating SQANTI report...."
+    print("**** Generating SQANTI report....", file=sys.stderr)
     cmd = RSCRIPTPATH + " {d}/{f} {c} {j}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath)
     if subprocess.check_call(cmd, shell=True)!=0:
-        print >> sys.stderr, "ERROR running command: {0}".format(cmd)
+        print("ERROR running command: {0}".format(cmd), file=sys.stderr)
         sys.exit(-1)
     stop3 = timeit.default_timer()
 
-    print >> sys.stderr, "Removing temporary files...."
+    print("Removing temporary files....", file=sys.stderr)
     os.remove(outputClassPath+"_tmp")
     os.remove(outputJuncPath+"_tmp")
 
 
-    print >> sys.stderr, "SQANTI complete in {0} sec.".format(stop3 - start3)
+    print("SQANTI complete in {0} sec.".format(stop3 - start3), file=sys.stderr)
 
 
 def rename_isoform_seqids(input_fasta, force_id_ignore=False):
@@ -1637,7 +1638,7 @@ def rename_isoform_seqids(input_fasta, force_id_ignore=False):
         m2 = seqid_rex2.match(r.id)
         m3 = seqid_fusion.match(r.id)
         if not force_id_ignore and (m1 is None and m2 is None and m3 is None):
-            print >> sys.stderr, "Invalid input IDs! Expected PB.X.Y or PB.X.Y|xxxxx or PBfusion.X format but saw {0} instead. Abort!".format(r.id)
+            print("Invalid input IDs! Expected PB.X.Y or PB.X.Y|xxxxx or PBfusion.X format but saw {0} instead. Abort!".format(r.id), file=sys.stderr)
             sys.exit(-1)
         if r.id.startswith('PB.') or r.id.startswith('PBfusion.'):  # PacBio fasta header
             newid = r.id.split('|')[0]
@@ -1721,12 +1722,12 @@ def main():
     args = parser.parse_args()
 
     if args.is_fusion:
-        print >> sys.stderr, "WARNING: Currently if --is_fusion is used, no ORFs will be predicted."
+        print("WARNING: Currently if --is_fusion is used, no ORFs will be predicted.", file=sys.stderr)
         args.skipORF = True
 
     if args.expression is not None:
         if not os.path.exists(args.expression):
-            print >> sys.stderr, "Expression file {0} not found. Abort!".format(args.expression)
+            print("Expression file {0} not found. Abort!".format(args.expression), file=sys.stderr)
             sys.exit(-1)
 
     # path and prefix for output files
@@ -1737,39 +1738,39 @@ def main():
         args.dir = os.getcwd()
     else:
         if not os.path.isdir(os.path.abspath(args.dir)):
-            print >> sys.stderr, "ERROR: {0} directory doesn't exist. Abort!".format(args.dir)
+            print("ERROR: {0} directory doesn't exist. Abort!".format(args.dir), file=sys.stderr)
             sys.exit()
         else:
             args.dir = os.path.abspath(args.dir)
 
     args.genome = os.path.abspath(args.genome)
     if not os.path.isfile(args.genome):
-        print >> sys.stderr, "ERROR: genome fasta {0} doesn't exist. Abort!".format(args.genome)
+        print("ERROR: genome fasta {0} doesn't exist. Abort!".format(args.genome), file=sys.stderr)
         sys.exit()
 
     args.isoforms = os.path.abspath(args.isoforms)
     if not os.path.isfile(args.isoforms):
-        print >> sys.stderr, "ERROR: Input isoforms {0} doesn't exist. Abort!".format(args.isoforms)
+        print("ERROR: Input isoforms {0} doesn't exist. Abort!".format(args.isoforms), file=sys.stderr)
         sys.exit()
 
     if not args.gtf:
         if args.aligner_choice == 'gmap':
             if not os.path.isdir(os.path.abspath(args.gmap_index)):
-                print >> sys.stderr, "GMAP index {0} doesn't exist! Abort.".format(args.gmap_index)
+                print("GMAP index {0} doesn't exist! Abort.".format(args.gmap_index), file=sys.stderr)
                 sys.exit()
         elif args.aligner_choice == 'deSALT':
             if not os.path.isdir(os.path.abspath(args.gmap_index)):
-                print >> sys.stderr, "deSALT index {0} doesn't exist! Abort.".format(args.gmap_index)
+                print("deSALT index {0} doesn't exist! Abort.".format(args.gmap_index), file=sys.stderr)
                 sys.exit()
 
-        print >> sys.stderr, "Cleaning up isoform IDs..."
+        print("Cleaning up isoform IDs...", file=sys.stderr)
         args.isoforms = rename_isoform_seqids(args.isoforms, args.force_id_ignore)
-        print >> sys.stderr, "Cleaned up isoform fasta file written to: {0}".format(args.isoforms)
+        print("Cleaned up isoform fasta file written to: {0}".format(args.isoforms), file=sys.stderr)
 
 
     args.annotation = os.path.abspath(args.annotation)
     if not os.path.isfile(args.annotation):
-        print >> sys.stderr, "ERROR: Annotation doesn't exist. Abort!".format(args.annotation)
+        print("ERROR: Annotation doesn't exist. Abort!".format(args.annotation), file=sys.stderr)
         sys.exit()
 
     #if args.aligner_choice == "gmap":
@@ -1785,7 +1786,7 @@ def main():
     #    args.sense = "--trans-strand"
 
     # Running functionality
-    print >> sys.stdout, "**** Running SQANTI..."
+    print("**** Running SQANTI...", file=sys.stdout)
     run(args)
 
 

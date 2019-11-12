@@ -215,7 +215,7 @@ if (length(FL_multisample_indices)>0)
         data.class[,name] <- data.class[j]*(10**6)/total_fl
         data.class[,name2] <- log10(data.class[j]*(10**6)/total_fl + 1)
     }
-    write.table(data.class, class.file2, quote=F);
+    write.table(data.class, class.file2, quote=F, sep='\t');
 }
 
 
