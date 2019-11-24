@@ -193,6 +193,7 @@ isoPerGene$novelGene = factor(isoPerGene$novelGene,
 isoPerGene$nIsoCat =cut(isoPerGene$nIso, breaks = c(0,1,3,5,max(isoPerGene$nIso)+1), labels = c("1", "2-3", "4-5", ">=6"))
 
 
+# single FL count file provided
 if (!all(is.na(data.class$FL))){
     total_fl <- sum(data.class$FL, na.rm=T)
     data.class$FL_TPM <- round(data.class$FL*(10**6)/total_fl)
@@ -1036,9 +1037,8 @@ grid.draw(cover)
 
 # TABLE 1: Number of isoforms in each structural category
 
-freqCat <- as.data.frame(table(data.class$structural_category))
-#freqCat$ranking = order(freqCat$Freq,decreasing = T)
-table1 <- tableGrob(freqCat, rows = NULL, cols = c("Category","# Isoforms"))
+freqCat <- group_by(data.class, by=structural_category) %>% summarise(num_iso=n(), num_gene=length(unique(associated_gene)))
+table1 <- tableGrob(freqCat, rows = NULL, cols = c("Category","# Isoforms", "# Genes"))
 title1 <- textGrob("Characterization of transcripts\n based on splice junctions", gp=gpar(fontface="italic", fontsize=17), vjust = -3.5)
 gt1 <- gTree(children=gList(table1, title1))
 
@@ -1112,6 +1112,43 @@ if (!all(is.na(data.class$iso_exp))){
 }
 if (!all(is.na(data.class$FL))){
     print(p9)
+}
+
+# (optional) table of FL counts by structural category
+# case 1: single FL sample
+if (!all(is.na(data.class$FL)))
+{
+    m1 <- group_by(data.class, by=structural_category) %>% summarise(count=n(), fl=sum(FL))
+    cols <- c("category", "isoforms", "FL")
+    table.FL <- tableGrob(m1, rows = NULL, cols = cols)
+    title.FL <- textGrob("FL counts by category", gp=gpar(fontface="italic", fontsize=17), vjust = -10)
+    gt.FL <- gTree(children=gList(table.FL, title.FL))
+    grid.arrange(gt.FL, ncol=1)
+}
+
+# case 2: multi FL sample
+if (length(FL_multisample_indices)>0)
+{
+    j <- FL_multisample_indices[1]
+    name <- colnames(data.class)[j]
+    cols <- c("category", "isoforms", name)
+
+    m1 <- group_by(data.class, by=structural_category) %>% summarise(count=n(), fl=sum(!!sym(name)))
+
+    for (i in 2:length(FL_multisample_indices)) {
+        j <- FL_multisample_indices[i]
+        name <- colnames(data.class)[j]
+
+        m2 <- group_by(data.class, by=structural_category) %>% summarise(fl=sum(!!sym(name)))
+        m1 <- merge(m1, m2, by="by")
+        cols <- c(cols, name)
+    }
+    colnames(m1) <- cols
+
+    table.FL <- tableGrob(m1, rows = NULL, cols = cols)
+    title.FL <- textGrob("FL counts by category", gp=gpar(fontface="italic", fontsize=17), vjust = -10)
+    gt.FL <- gTree(children=gList(table.FL, title.FL))
+    grid.arrange(gt.FL, ncol=1)
 }
 
 
@@ -1319,6 +1356,15 @@ if (sum(!is.na(data.class$polyA_dist)) > 10) {
     grid.arrange(gt.polyA, gt.polyA_freq, ncol=2)
 }
 
+if (sum(!is.na(data.class$dist_to_cage_peak)) > 10) {
+
+    df.cage <- group_by(data.class, by=structural_category) %>%
+        summarise(count=n(), cage=sum(abs(dist_to_cage_peak)<=50,na.rm=T), freq=round(cage*100/count))
+    table.cage <- tableGrob(df.cage, rows=NULL, cols=c("Category", "Count", "Has CAGE peak\nwithin 50bp", "%"))
+    title.cage <- textGrob("Number of close by CAGE Peaks Detected" ,gp=gpar(fontface="italic", fontsize=15), vjust=-10)
+    gt.cage <- gTree(children=gList(table.cage, title.cage))
+    grid.arrange(gt.cage, ncol=1)
+}
 
 s <- textGrob("Intra-Priming Quality Check", gp=gpar(fontface="italic", fontsize=17), vjust = 0)
 grid.arrange(s)

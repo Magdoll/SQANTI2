@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 11/12/2019   Now works with Python 3.7 exclusively!!
+Last Updated: 11/24/2019   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -33,7 +33,9 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 ## Updates
 
-2019.11.12 updated to versoin 5.0.0. Now works exclusively with Python 3.7!
+2019.11.24 updated to version 5.1.0. `--is_fusion` must be used together with `--gtf`. Added addtional tables if `--fl_count` supplied.
+
+2019.11.12 updated to version 5.0.0. Now works exclusively with Python 3.7!
 
 2019.09.24 updated to version 4.1. `sqanti_qc2.py` now supports `--fl_count` multi-sample with plotting.
 

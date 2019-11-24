@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '5.0.0'  # Python 3.7
+__version__ = '5.1.0'  # Python 3.7
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -1704,7 +1704,7 @@ def main():
     parser.add_argument("--polyA_motif_list", help="\t\tRanked list of polyA motifs (text, optional)")
     parser.add_argument("--phyloP_bed", help="\t\tPhyloP BED for conservation score (BED, optional)")
     parser.add_argument("--skipORF", default=False, action="store_true", help="\t\tSkip ORF prediction (to save time)")
-    parser.add_argument("--is_fusion", default=False, action="store_true", help="\t\tInput are fusion isoforms")
+    parser.add_argument("--is_fusion", default=False, action="store_true", help="\t\tInput are fusion isoforms, must supply GTF as input using --gtf")
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
     parser.add_argument('-e','--expression', help='\t\tExpression matrix (supported: Kallisto tsv)', required=False)
     parser.add_argument('-x','--gmap_index', help='\t\tPath and prefix of the reference index created by gmap_build. Mandatory if using GMAP unless -g option is specified.')
@@ -1724,6 +1724,9 @@ def main():
     if args.is_fusion:
         print("WARNING: Currently if --is_fusion is used, no ORFs will be predicted.", file=sys.stderr)
         args.skipORF = True
+        if not args.gtf:
+            print("ERROR: if --is_fusion is on, must supply GTF as input and use --gtf!", file=sys.stderr)
+            sys.exit(-1)
 
     if args.expression is not None:
         if not os.path.exists(args.expression):
