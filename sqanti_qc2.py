@@ -905,6 +905,9 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
                                                      refLen=ref.length,
                                                      refExons=ref.exonCount,
                                                      percAdownTTS=str(percA))
+                elif isoform_hit.str_class=="anyKnownSpliceSite":
+                    isoform_hit.genes.append(ref.gene)
+
     ##***************************************####
     ########### UNSPLICED TRANSCRIPTS ###########
     ##***************************************####
@@ -1695,7 +1698,7 @@ def main():
 
     #arguments
     parser = argparse.ArgumentParser(description="Structural and Quality Annotation of Novel Transcript Isoforms")
-    parser.add_argument('isoforms', help='\tIsoforms (FASTA/FASTQ or gtf format; By default "FASTA/FASTQ". GTF if specified -g option)')
+    parser.add_argument('isoforms', help='\tIsoforms (FASTA/FASTQ or gtf format; By default "FASTA/FASTQ". For GTF, use --gtf')
     parser.add_argument('annotation', help='\t\tReference annotation file (GTF format)')
     parser.add_argument('genome', help='\t\tReference genome (Fasta format)')
     parser.add_argument("--force_id_ignore", action="store_true", default=False, help=argparse.SUPPRESS)
