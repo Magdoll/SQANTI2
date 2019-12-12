@@ -11,6 +11,10 @@ args <- commandArgs(trailingOnly = TRUE)
 class.file <- args[1]
 junc.file <- args[2]
 
+if (length(args)>2) {
+  param.file <- args[3]
+}
+
 report.prefix <- strsplit(class.file, "_classification.txt")[[1]][1];
 report.file <- paste(report.prefix, "sqanti_report.pdf", sep="_");
 class.file2 <- paste(report.prefix, "_classification_TPM.txt", sep='');
@@ -417,8 +421,8 @@ p.classByLen.b <- ggplot(data.class.byLen, aes(x=lenCat, y=perc*100, fill=factor
 
 ##**** PLOT 8: Expression, if isoform expression provided (iso_exp is in TPM)
 if (!all(is.na(data.class$iso_exp))){
-  p8 <- ggplot(data=data.class, aes(x=structural_category, y=log2(iso_exp+1), fill=structural_category)) +
-    geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
+  p8 <- ggplot(data=data.class, aes(x=structural_category, y=log2(iso_exp+1))) +
+    geom_violin(aes(fill=structural_category), draw_quantiles = c(0.25, 0.5, 0.75)) +
     scale_x_discrete(drop=FALSE) +
     ylab("log2(TPM+1)") +
     scale_fill_manual(values = myPalette) +
@@ -433,8 +437,8 @@ if (!all(is.na(data.class$iso_exp))){
 # PLOT 9: FL number, if FL count provided
 # convert FL count to TPM
 if (!all(is.na(data.class$FL))){
-    p9 <- ggplot(data=data.class, aes(x=structural_category, y=log2(FL_TPM+1), fill=structural_category)) +
-    geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
+    p9 <- ggplot(data=data.class, aes(x=structural_category, y=log2(FL_TPM+1))) +
+    geom_violin(aes(fill=structural_category), draw_quantiles = c(0.25, 0.5, 0.75)) +
     ylab("log2(FL_TPM+1)") +
     scale_x_discrete(drop=FALSE) +
     scale_fill_manual(values = myPalette) +
@@ -450,8 +454,8 @@ if (!all(is.na(data.class$FL))){
 
 # PLOT 10: Gene Expression, if expresion provided
 if (!all(is.na(data.class$iso_exp))){
-  p10 <- ggplot(data=isoPerGene, aes(x=novelGene, y=log2(geneExp+1), fill=novelGene)) +
-    geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
+  p10 <- ggplot(data=isoPerGene, aes(x=novelGene, y=log2(geneExp+1))) +
+    geom_violin(aes(fill=novelGene), draw_quantiles = c(0.25, 0.5, 0.75)) +
     scale_x_discrete(drop=FALSE) +
     xlab("Structural Classification") +  
     ylab("log2(Gene_TPM+1)") +
@@ -470,8 +474,8 @@ if (!all(is.na(data.class$FL))){
     isoPerGene <- merge(isoPerGene, FL_gene, by="associatedGene")
     isoPerGene$FL_gene_TPM <- isoPerGene$FL_gene*(10**6)/total_fl
 
-    p11 <- ggplot(data=isoPerGene, aes(x=novelGene, y=log2(FL_gene_TPM+1), fill=novelGene)) +
-    geom_boxplot(color="black", size=0.3,outlier.size = 0.2) +
+    p11 <- ggplot(data=isoPerGene, aes(x=novelGene, y=log2(FL_gene_TPM+1))) +
+    geom_violin(aes(fill=novelGene), draw_quantiles = c(0.25, 0.5, 0.75)) +
     scale_x_discrete(drop=FALSE) +
     ylab("log2(FL_TPM+1)") +
     scale_fill_manual(values = myPalette[c(3:4)]) +
@@ -479,7 +483,6 @@ if (!all(is.na(data.class$FL))){
     mytheme +
     theme(axis.title.x=element_blank()) +
     ggtitle("Number of FL reads per Gene by type of gene annotation\n\n" )
-  
 }
 
 
@@ -498,8 +501,8 @@ if (!all(is.na(data.class$gene_exp))){
     isoPerGene$NNC_class <- factor(isoPerGene$NNC_class, levels=c("Genes with\n NNC isoforms","Genes without\n NNC isoforms"),
                             labels=c("Genes with\n NNC isoforms","Genes without\n NNC isoforms"), order=T)
     
-    p12 <- ggplot(data=isoPerGene[!is.na(isoPerGene$NNC_class),], aes(x=NNC_class, y=log2(geneExp+1), fill=NNC_class)) +
-      geom_boxplot(color="black", size=0.3, outlier.alpha=0.1) +
+    p12 <- ggplot(data=isoPerGene[!is.na(isoPerGene$NNC_class),], aes(x=NNC_class, y=log2(geneExp+1))) +
+      geom_violin(aes(fill=NNC_class), draw_quantiles=c(0.25, 0.5, 0.75)) +
       xlab("") +  
       ylab("log2(Gene_TPM+1)") +
       scale_x_discrete(drop=FALSE) +
@@ -516,10 +519,7 @@ if (!all(is.na(data.class$gene_exp))){
 # PLOT 13: Genes expression to only FSM Genes, only NNC Genes and both containing genes
 
 if (!all(is.na(data.class$gene_exp))){
-  
-  
   if (nrow(data.class[data.class$structural_category=="NNC",])!=0 & nrow(data.class[data.class$structural_category=="FSM",])!=0 ){
-    
     FSM_just_genes = unique(data.class[data.class$FSM_class=="A" & data.class$structural_category=="FSM","associated_gene"])
     NNC_just_genes = unique(data.class[data.class$FSM_class=="A" & data.class$structural_category=="NNC","associated_gene"])
     FSMandNNCgenes = unique(data.class[data.class$FSM_class=="C" & data.class$structural_category=="NNC","associated_gene"])
@@ -533,8 +533,8 @@ if (!all(is.na(data.class$gene_exp))){
     isoPerGene$FSM_NNC_class = factor(isoPerGene$FSM_NNC_class, levels=c("Genes expressing\nboth NNC and\n FSM isoforms","Genes expressing\n only NNC isoforms","Genes expressing\n only FSM isoforms"),
                                 labels=c("Genes expressing\nboth NNC and\n FSM isoforms","Genes expressing\n only NNC isoforms","Genes expressing\n only FSM isoforms"), order=T)
     
-    p13 <- ggplot(data=isoPerGene[!is.na(isoPerGene$FSM_NNC_class),], aes(x=FSM_NNC_class, y=log2(geneExp+1), fill=FSM_NNC_class)) +
-      geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
+    p13 <- ggplot(data=isoPerGene[!is.na(isoPerGene$FSM_NNC_class),], aes(x=FSM_NNC_class, y=log2(geneExp+1))) +
+      geom_violin(aes(fill=FSM_NNC_class), draw_quantiles = c(0.25, 0.5, 0.75)) +
       ylab("log2( # Short reads per gene + 1)") +
       theme(axis.title.x=element_blank()) +
       #theme(plot.margin = unit(c(1.5,1,0.5,1), "cm")) +
@@ -551,8 +551,8 @@ if (!all(is.na(data.class$gene_exp))){
                                 "NNC genes"), drop=FALSE) 
     
     
-    p13.c <- ggplot(data=data.class[!is.na(data.class$class),], aes(x=class, y=log2(iso_exp+1), fill=structural_category)) +
-      geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
+    p13.c <- ggplot(data=data.class[!is.na(data.class$class),], aes(x=class, y=log2(iso_exp+1))) +
+      geom_violin(aes(fill=structural_category), draw_quantiles = c(0.25, 0.5, 0.75)) +
       ylab("log2( # Short reads per transcript + 1)") +
       theme(axis.title.x=element_blank()) +
       #theme(plot.margin = unit(c(1.5,1,0.5,1), "cm")) +
@@ -968,8 +968,6 @@ if (nrow(data.junction) > 0){
 
 
 # PLOT p30,p31,p32: percA by subcategory
-
-
 p30 <- ggplot(data=data.class, aes(y=perc_A_downstream_TTS, x=structural_category, fill=subcategory)) +
     geom_boxplot(color="black", size=0.3, outlier.size = 0.2) +
     mytheme +
@@ -1029,14 +1027,23 @@ p32 <- ggplot(data=data.class, aes(y=perc_A_downstream_TTS, x=structural_categor
 pdf(file=report.file, width = 6.5, height = 6.5)
 
 
-#cover
+# cover
 grid.newpage()
 cover <- textGrob("SQANTI2 report",
     gp=gpar(fontface="italic", fontsize=40, col="orangered"))
 grid.draw(cover)
 
-# TABLE 1: Number of isoforms in each structural category
 
+# document the parameters, if available
+grid.newpage()
+if (length(args)>2) {
+  param <- read.table(param.file, sep='\t', header=F)
+  table.param <- tableGrob(param, rows = NULL, cols = NULL)
+  grid.draw(table.param)
+}
+
+
+# TABLE 1: Number of isoforms in each structural category
 freqCat <- group_by(data.class, by=structural_category) %>% summarise(num_iso=n(), num_gene=length(unique(associated_gene)))
 table1 <- tableGrob(freqCat, rows = NULL, cols = c("Category","# Isoforms", "# Genes"))
 title1 <- textGrob("Characterization of transcripts\n based on splice junctions", gp=gpar(fontface="italic", fontsize=17), vjust = -3.5)

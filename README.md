@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 11/24/2019   Now works with Python 3.7 exclusively!!
+Last Updated: 12/12/2019 (v6.0.0, [notes](https://www.dropbox.com/s/d1ya562ib00qhzc/Dec2019_SQANTI2_6.0.0_release_Notes.pptx?dl=0))   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -32,6 +32,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2019.12.12 updated to version 6.0.0. MAJOR re-classification changes! See [notes](https://www.dropbox.com/s/d1ya562ib00qhzc/Dec2019_SQANTI2_6.0.0_release_Notes.pptx?dl=0)
 
 2019.11.24 updated to version 5.1.0. `--is_fusion` must be used together with `--gtf`. Added addtional tables if `--fl_count` supplied.
 
