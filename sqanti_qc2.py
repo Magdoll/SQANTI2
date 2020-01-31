@@ -4,10 +4,11 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '6.0.0'  # Python 3.7
+__version__ = '7.0.0'  # Python 3.7
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
+import shutil
 import distutils.spawn
 import itertools
 import bisect
@@ -117,6 +118,8 @@ RSCRIPT_REPORT = 'SQANTI_report2.R'
 if os.system(RSCRIPTPATH + " --version")!=0:
     print("Rscript executable not found! Abort!", file=sys.stderr)
     sys.exit(-1)
+
+SPLIT_ROOT_DIR = 'splits/'
 
 
 class genePredReader(object):
@@ -426,6 +429,21 @@ def write_collapsed_GFF_with_CDS(isoforms_info, input_gff, output_gff):
                     r.cds_exons.append(Interval(exon.start, min(e, exon.end)))
             write_collapseGFF_format(f, r)
 
+def get_corr_filenames(args, dir=None):
+    d = dir if dir is not None else args.dir
+    corrPathPrefix = os.path.join(d, args.output)
+    corrGTF = corrPathPrefix +"_corrected.gtf"
+    corrSAM = corrPathPrefix +"_corrected.sam"
+    corrFASTA = corrPathPrefix +"_corrected.fasta"
+    corrORF =  corrPathPrefix +"_corrected.faa"
+    return corrGTF, corrSAM, corrFASTA, corrORF
+
+def get_class_junc_filenames(args, dir=None):
+    d = dir if dir is not None else args.dir
+    outputPathPrefix = os.path.join(d, args.output)
+    outputClassPath = outputPathPrefix + "_classification.txt"
+    outputJuncPath = outputPathPrefix + "_junctions.txt"
+    return outputClassPath, outputJuncPath
 
 def correctionPlusORFpred(args, genome_dict):
     """
@@ -436,12 +454,9 @@ def correctionPlusORFpred(args, genome_dict):
     global corrSAM
     global corrFASTA
 
-    corrPathPrefix = os.path.join(args.dir, os.path.splitext(os.path.basename(args.isoforms))[0])
-    corrGTF = corrPathPrefix +"_corrected.gtf"
-    corrSAM = corrPathPrefix +"_corrected.sam"
-    corrFASTA = corrPathPrefix +"_corrected.fasta"
-    corrORF =  corrPathPrefix +"_corrected.faa"
+    corrGTF, corrSAM, corrFASTA, corrORF = get_corr_filenames(args)
 
+    n_cpu = max(1, args.cpus // args.chunks)
 
     # Step 1. IF GFF or GTF is provided, make it into a genome-based fasta
     #         IF sequence is provided, align as SAM then correct with genome
@@ -454,7 +469,7 @@ def correctionPlusORFpred(args, genome_dict):
             else:
                 if args.aligner_choice == "gmap":
                     print("****Aligning reads with GMAP...", file=sys.stdout)
-                    cmd = GMAP_CMD.format(cpus=args.gmap_threads,
+                    cmd = GMAP_CMD.format(cpus=n_cpu,
                                           dir=os.path.dirname(args.gmap_index),
                                           name=os.path.basename(args.gmap_index),
                                           sense=args.sense,
@@ -462,14 +477,14 @@ def correctionPlusORFpred(args, genome_dict):
                                           o=corrSAM)
                 elif args.aligner_choice == "minimap2":
                     print("****Aligning reads with Minimap2...", file=sys.stdout)
-                    cmd = MINIMAP2_CMD.format(cpus=args.gmap_threads,
+                    cmd = MINIMAP2_CMD.format(cpus=n_cpu,
                                               sense=args.sense,
                                               g=args.genome,
                                               i=args.isoforms,
                                               o=corrSAM)
                 elif args.aligner_choice == "deSALT":
                     print("****Aligning reads with deSALT...", file=sys.stdout)
-                    cmd = DESALT_CMD.format(cpus=args.gmap_threads,
+                    cmd = DESALT_CMD.format(cpus=n_cpu,
                                             dir=args.gmap_index,
                                             i=args.isoforms,
                                             o=corrSAM)
@@ -535,11 +550,10 @@ def correctionPlusORFpred(args, genome_dict):
     # ORF generation
     print("**** Predicting ORF sequences...", file=sys.stdout)
 
-    gmst_dir = os.path.join(args.dir, "GMST")
+    gmst_dir = os.path.join(os.path.abspath(args.dir), "GMST")
     gmst_pre = os.path.join(gmst_dir, "GMST_tmp")
     if not os.path.exists(gmst_dir):
         os.makedirs(gmst_dir)
-
 
     # sequence ID example: PB.2.1 gene_4|GeneMark.hmm|264_aa|+|888|1682
     gmst_rex = re.compile('(\S+\t\S+\|GeneMark.hmm)\|(\d+)_aa\|(\S)\|(\d+)\|(\d+)')
@@ -559,10 +573,13 @@ def correctionPlusORFpred(args, genome_dict):
             cds_end = int(m.group(5))
             orfDict[r.id] = myQueryProteins(cds_start, cds_end, orf_length, proteinID=r.id)
     else:
+        cur_dir = os.path.abspath(os.getcwd())
+        os.chdir(args.dir)
         cmd = GMST_CMD.format(i=corrFASTA, o=gmst_pre)
         if subprocess.check_call(cmd, shell=True, cwd=gmst_dir)!=0:
             print("ERROR running GMST cmd: {0}".format(cmd), file=sys.stderr)
             sys.exit(-1)
+        os.chdir(cur_dir)
         # Modifying ORF sequences by removing sequence before ATG
         with open(corrORF, "w") as f:
             for r in SeqIO.parse(open(gmst_pre+'.faa'), 'fasta'):
@@ -882,6 +899,8 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
     cat_ranking = {'full-splice_match': 5, 'incomplete-splice_match': 4, 'anyKnownJunction': 3, 'anyKnownSpliceSite': 2,
                    'geneOverlap': 1, '': 0}
 
+    #if trec.id.startswith('PB.102.9'):
+    #    pdb.set_trace()
     if trec.exonCount >= 2:
 
         hits_by_gene = defaultdict(lambda: [])  # gene --> list of hits
@@ -912,7 +931,7 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
                     isoform_hit.AS_genes.add(ref.gene)
                     continue
 
-                #if trec.id.startswith('PB.1252.'):
+                #if trec.id.startswith('PB.102.9'):
                 #    pdb.set_trace()
                 if ref.exonCount == 1: # mono-exonic reference, handle specially here
                     if calc_exon_overlap(trec.exons, ref.exons) > 0 and cat_ranking[isoform_hit.str_class] < cat_ranking["geneOverlap"]:
@@ -1106,6 +1125,8 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
             # (1) if it overlaps with a ref exon and is contained in an exon, we call it ISM
             # (2) else, if it is completely within a ref gene start-end region, we call it NIC by intron retention
             for ref in refs_exons_by_chr[trec.chrom].find(trec.txStart, trec.txEnd):
+                if calc_exon_overlap(trec.exons, ref.exons) == 0:   # no exonic overlap, skip!
+                    continue
                 if ref.strand != trec.strand:
                     # opposite strand, just record it in AS_genes
                     isoform_hit.AS_genes.add(ref.gene)
@@ -1380,14 +1401,11 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
 
     accepted_canonical_sites = list(args.sites.split(","))
 
-    outputPathPrefix = args.dir+"/"+args.output
-
-    outputClassPath = outputPathPrefix+"_classification.txt"
     handle_class = open(outputClassPath+"_tmp", "w")
     fout_class = DictWriter(handle_class, fieldnames=FIELDS_CLASS, delimiter='\t')
     fout_class.writeheader()
 
-    outputJuncPath = outputPathPrefix+"_junctions.txt"
+    #outputJuncPath = outputPathPrefix+"_junctions.txt"
     handle_junc = open(outputJuncPath+"_tmp", "w")
     fout_junc = DictWriter(handle_junc, fieldnames=fields_junc_cur, delimiter='\t')
     fout_junc.writeheader()
@@ -1412,7 +1430,10 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
 
             if isoform_hit.str_class in ("intergenic", "genic_intron"):
                 # Liz: I don't find it necessary to cluster these novel genes. They should already be always non-overlapping.
-                isoform_hit.genes = ['novelGene_' + str(novel_gene_index)]
+                if args.novel_gene_prefix is not None:  # used by splits to not have redundant novelGene IDs
+                    isoform_hit.genes = ['novelGene_' + str(args.novel_gene_prefix) + '_' + str(novel_gene_index)]
+                else:
+                    isoform_hit.genes = ['novelGene_' + str(novel_gene_index)]
                 isoform_hit.transcripts = ['novel']
                 novel_gene_index += 1
 
@@ -1582,11 +1603,14 @@ def FLcount_parser(fl_count_filename):
     return samples, fl_count_dict
 
 def run(args):
+    global outputClassPath
+    global outputJuncPath
+
+    outputClassPath, outputJuncPath = get_class_junc_filenames(args)
 
     start3 = timeit.default_timer()
 
     print("**** Parsing provided files....", file=sys.stdout)
-
     print("Reading genome fasta {0}....".format(args.genome), file=sys.stdout)
     # NOTE: can't use LazyFastaReader because inefficient. Bring the whole genome in!
     genome_dict = dict((r.name, r) for r in SeqIO.parse(open(args.genome), 'fasta'))
@@ -1615,10 +1639,7 @@ def run(args):
     print("Number of classified isoforms: {0}".format(len(isoforms_info)), file=sys.stdout)
 
     write_collapsed_GFF_with_CDS(isoforms_info, corrGTF, corrGTF+'.cds.gff')
-
-    outputPathPrefix = os.path.join(args.dir, args.output)
-    outputClassPath = outputPathPrefix + "_classification.txt"
-    outputJuncPath = outputPathPrefix + "_junctions.txt"
+    os.rename(corrGTF+'.cds.gff', corrGTF)
 
     ## RT-switching computation
     print("**** RT-switching computation....", file=sys.stderr)
@@ -1758,7 +1779,6 @@ def run(args):
         isoforms_info[pbid].sd = pstdev(covs)
 
     #### Printing output file:
-
     print("**** Writing output files....", file=sys.stderr)
 
     # sort isoform keys
@@ -1783,20 +1803,19 @@ def run(args):
             fout_junc.writerow(r)
 
     ## Generating report
-
-    print("**** Generating SQANTI report....", file=sys.stderr)
-    cmd = RSCRIPTPATH + " {d}/{f} {c} {j} {p}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath, p=args.doc)
-    if subprocess.check_call(cmd, shell=True)!=0:
-        print("ERROR running command: {0}".format(cmd), file=sys.stderr)
-        sys.exit(-1)
+    if not args.skip_report:
+        print("**** Generating SQANTI2 report....", file=sys.stderr)
+        cmd = RSCRIPTPATH + " {d}/{f} {c} {j} {p}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath, p=args.doc)
+        if subprocess.check_call(cmd, shell=True)!=0:
+            print("ERROR running command: {0}".format(cmd), file=sys.stderr)
+            sys.exit(-1)
     stop3 = timeit.default_timer()
 
     print("Removing temporary files....", file=sys.stderr)
     os.remove(outputClassPath+"_tmp")
     os.remove(outputJuncPath+"_tmp")
 
-
-    print("SQANTI complete in {0} sec.".format(stop3 - start3), file=sys.stderr)
+    print("SQANTI2 complete in {0} sec.".format(stop3 - start3), file=sys.stderr)
 
 
 def rename_isoform_seqids(input_fasta, force_id_ignore=False):
@@ -1868,10 +1887,114 @@ class CAGEPeak:
                     within_peak, dist_peak = (start0<=query<end1), d
         return within_peak, dist_peak
 
+import pdb
+import copy
+from multiprocessing import Process
+def split_input_run(args):
+    if os.path.exists(SPLIT_ROOT_DIR):
+        print("WARNING: {0} directory already exists! Abort!".format(SPLIT_ROOT_DIR), file=sys.stderr)
+        sys.exit(-1)
+    else:
+        os.makedirs(SPLIT_ROOT_DIR)
 
+    if args.gtf:
+        recs = [r for r in collapseGFFReader(args.isoforms)]
+        n = len(recs)
+        chunk_size = n//args.chunks + (n%args.chunks >0)
+        split_outs = []
+        #pdb.set_trace()
+        for i in range(args.chunks):
+            if i*chunk_size >= n:
+                break
+            d = os.path.join(SPLIT_ROOT_DIR, str(i))
+            os.makedirs(d)
+            f = open(os.path.join(d, os.path.basename(args.isoforms)+'.split'+str(i)), 'w')
+            for j in range(i*chunk_size, min((i+1)*chunk_size, n)):
+                write_collapseGFF_format(f, recs[j])
+            f.close()
+            split_outs.append((os.path.abspath(d), f.name))
+    else:
+        recs = [r for r in SeqIO.parse(open(args.isoforms),'fasta')]
+        n = len(recs)
+        chunk_size = n//args.chunks + (n%args.chunks >0)
+        split_outs = []
+        for i in range(args.chunks):
+            if i*chunk_size >= n:
+                break
+            d = os.path.join(SPLIT_ROOT_DIR, str(i))
+            os.makedirs(d)
+            f = open(os.path.join(d, os.path.basename(args.isoforms)+'.split'+str(i)), 'w')
+            for j in range(i*chunk_size, min((i+1)*chunk_size, n)):
+                SeqIO.write(recs[j], f, 'fasta')
+            f.close()
+            split_outs.append((os.path.abspath(d), f.name))
+
+    pools = []
+    for i,(d,x) in enumerate(split_outs):
+        print("launching worker on on {0}....".format(x))
+        args2 = copy.deepcopy(args)
+        args2.isoforms = x
+        args2.novel_gene_prefix = str(i)
+        args2.dir = d
+        args2.skip_report = True
+        p = Process(target=run, args=(args2,))
+        p.start()
+        pools.append(p)
+
+    for p in pools:
+        p.join()
+    return [d for (d,x) in split_outs]
+
+def combine_split_runs(args, split_dirs):
+    """
+    Combine .faa, .fasta, .gtf, .classification.txt, .junctions.txt
+    Then write out the PDF report
+    """
+    corrGTF, corrSAM, corrFASTA, corrORF = get_corr_filenames(args)
+    outputClassPath, outputJuncPath = get_class_junc_filenames(args)
+
+    if not args.skipORF:
+        f_faa = open(corrORF, 'w')
+    f_fasta = open(corrFASTA, 'w')
+    f_gtf = open(corrGTF, 'w')
+    f_class = open(outputClassPath, 'w')
+    f_junc = open(outputJuncPath, 'w')
+
+    for i,split_d in enumerate(split_dirs):
+        _gtf, _sam, _fasta, _orf = get_corr_filenames(args, split_d)
+        _class, _junc = get_class_junc_filenames(args, split_d)
+        if not args.skipORF:
+            with open(_orf) as h: f_faa.write(h.read())
+        with open(_gtf) as h: f_gtf.write(h.read())
+        with open(_fasta) as h: f_fasta.write(h.read())
+        with open(_class) as h:
+            if i == 0:
+                f_class.write(h.readline())
+            else:
+                h.readline()
+            f_class.write(h.read())
+        with open(_junc) as h:
+            if i == 0:
+                f_junc.write(h.readline())
+            else:
+                h.readline()
+            f_junc.write(h.read())
+
+    f_fasta.close()
+    f_gtf.close()
+    f_class.close()
+    f_junc.close()
+    if not args.skipORF:
+        f_faa.close()
+
+    if not args.skip_report:
+        print("**** Generating SQANTI2 report....", file=sys.stderr)
+        cmd = RSCRIPTPATH + " {d}/{f} {c} {j} {p}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath, p=args.doc)
+        if subprocess.check_call(cmd, shell=True)!=0:
+            print("ERROR running command: {0}".format(cmd), file=sys.stderr)
+            sys.exit(-1)
 
 def main():
-
     global utilitiesPath
 
     #arguments
@@ -1890,7 +2013,8 @@ def main():
     parser.add_argument('-g', '--gtf', help='\t\tUse when running SQANTI by using as input a gtf of isoforms', action='store_true')
     parser.add_argument('-e','--expression', help='\t\tExpression matrix (supported: Kallisto tsv)', required=False)
     parser.add_argument('-x','--gmap_index', help='\t\tPath and prefix of the reference index created by gmap_build. Mandatory if using GMAP unless -g option is specified.')
-    parser.add_argument('-t', '--gmap_threads', help='\t\tNumber of threads used during alignment by aligners.', required=False, default="1", type=int)
+    parser.add_argument('-t', '--cpus', default=10, type=int, help='\t\tNumber of threads used during alignment by aligners. (default: 10)')
+    parser.add_argument('-n', '--chunks', default=1, type=int, help='\t\tNumber of chunks to split SQANTI2 analysis in for speed up (default: 1).')
     #parser.add_argument('-z', '--sense', help='\t\tOption that helps aligners know that the exons in you cDNA sequences are in the correct sense. Applicable just when you have a high quality set of cDNA sequences', required=False, action='store_true')
     parser.add_argument('-o','--output', help='\t\tPrefix for output files.', required=False)
     parser.add_argument('-d','--dir', help='\t\tDirectory for output files. Default: Directory where the script was run.', required=False)
@@ -1900,6 +2024,7 @@ def main():
     parser.add_argument('--geneid', help='\t\tUse gene_id tag from GTF to define genes. Default: gene_name used to define genes', default=False, action='store_true')
     parser.add_argument('-fl', '--fl_count', help='\t\tFull-length PacBio abundance file', required=False)
     parser.add_argument("-v", "--version", help="Display program version number.", action='version', version='SQANTI2 '+str(__version__))
+    parser.add_argument("--skip_report", action="store_true", default=False, help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 
@@ -1922,11 +2047,11 @@ def main():
     if args.dir is None:
         args.dir = os.getcwd()
     else:
-        if not os.path.isdir(os.path.abspath(args.dir)):
-            print("ERROR: {0} directory doesn't exist. Abort!".format(args.dir), file=sys.stderr)
-            sys.exit()
+        args.dir = os.path.abspath(args.dir)
+        if os.path.isdir(args.dir):
+            print("WARNING: output directory {0} already exists. Overwriting!".format(args.dir), file=sys.stderr)
         else:
-            args.dir = os.path.abspath(args.dir)
+            os.makedirs(args.dir)
 
     args.genome = os.path.abspath(args.genome)
     if not os.path.isfile(args.genome):
@@ -1970,8 +2095,10 @@ def main():
     #elif args.aligner_choice == "deSALT":  #deSALT does not support this yet
     #    args.sense = "--trans-strand"
 
+
+    args.novel_gene_prefix = None
     # Print out parameters so can be put into report PDF later
-    args.doc = os.path.join(args.dir, args.output+".params.txt")
+    args.doc = os.path.join(os.path.abspath(args.dir), args.output+".params.txt")
     print("Write arguments to {0}...".format(args.doc, file=sys.stdout))
     with open(args.doc, 'w') as f:
         f.write("Version\t" + __version__ + "\n")
@@ -1987,10 +2114,13 @@ def main():
         f.write("IsFusion\t" + str(args.is_fusion) + "\n")
     
     # Running functionality
-    print("**** Running SQANTI...", file=sys.stdout)
-    run(args)
-
-    
+    print("**** Running SQANTI2...", file=sys.stdout)
+    if args.chunks == 1:
+        run(args)
+    else:
+        split_dirs = split_input_run(args)
+        combine_split_runs(args, split_dirs)
+        shutil.rmtree(SPLIT_ROOT_DIR)
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 12/12/2019 (v6.0.0, [notes](https://www.dropbox.com/s/d1ya562ib00qhzc/Dec2019_SQANTI2_6.0.0_release_Notes.pptx?dl=0))   Now works with Python 3.7 exclusively!!
+Last Updated: 01/30/2020 (v7.0.0)   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -32,6 +32,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2020.01.31 updated to version 7.0.0. Minor re-classification changes for edge case mono-exonic transcripts. Supporting multithreading with `-n` option!
 
 2019.12.12 updated to version 6.0.0. MAJOR re-classification changes! See [notes](https://www.dropbox.com/s/d1ya562ib00qhzc/Dec2019_SQANTI2_6.0.0_release_Notes.pptx?dl=0)
 
@@ -203,7 +205,8 @@ Optionally:
 The script usage is:
 
 ```
-python sqanti_qc2.py [-t cpus] [--gtf] [--skipORF] 
+python sqanti_qc2.py [-t cpus] [-n chunks]
+     [--gtf] [--skipORF] 
      [-c shortread_STAR_junction_out] 
      [--cage_peak CAGE_PEAK_BED]
      [--polyA_motif_list POLYA_LIST]
@@ -223,10 +226,15 @@ If `--aligner_choice=deSALT`, the deSALT parameter used currently is: `deSALT al
 You can look at the [`MINIMAP2_CMD` and `DESALT_CMD` in `sqanti_qc2.py` for the full command format](https://github.com/Magdoll/SQANTI2/blob/master/sqanti_qc2.py#L61).
 
 
+There are two options related to parallelization. The first is `-t` (`--cpus`) that designates the number of CPUs used by the aliger. 
+If your input is GTF (using `--gtf` option), the `-t` option has no effect.
+The second is `-n` (`--chunks`) that chunks the input (GTF or fasta) into chunks and run SQANTI2 in parallel before combining them. 
+Note that if you have `-t 30 -n 10`, then each chunk gets (30/10=3) CPUs.
+
 For example:
 
 ```
-python sqanti_qc2.py -t 30 --gtf example/test.gtf \
+python sqanti_qc2.py -t 30 -n 10 --gtf example/test.gtf \
      gencode.v29.annotation.gtf hg38.fa \
      --fl_count example/test.chained_count.txt \
      --polyA_motif_list example/polyA.list \

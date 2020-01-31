@@ -18,7 +18,7 @@ if (length(args)>2) {
 report.prefix <- strsplit(class.file, "_classification.txt")[[1]][1];
 report.file <- paste(report.prefix, "sqanti_report.pdf", sep="_");
 class.file2 <- paste(report.prefix, "_classification_TPM.txt", sep='');
-
+report.dir <- dirname(report.prefix);
 
 #********************** Packages (install if not found)
 
@@ -1190,7 +1190,7 @@ if (length(FL_multisample_indices)>0) {
                 guides(fill=FALSE) +
                 mytheme
             print(p.tmp)
-            ggsave(paste("Rplot.",n1,"vs",n2,".by_cat.png",sep=''), p.tmp, width=8, height=6)
+            ggsave(file.path(report.dir, paste("Rplot.",n1,"vs",n2,".by_cat.png",sep='')), p.tmp, width=8, height=6)
 
             data.class.gene <- group_by(data.class, by=associated_gene) %>% summarise(n=n(), sum1=sum(!!sym(j1)), sum2=sum(!!sym(j2)))
             pearson <- round(cor(data.class.gene$sum1, data.class.gene$sum2, method="pearson"), 2)
@@ -1205,7 +1205,7 @@ if (length(FL_multisample_indices)>0) {
                 guides(fill=FALSE) +
                 mytheme
             print(p.tmp.gene)
-            ggsave(paste("Rplot.",n1,"vs",n2,".summed_by_gene.png",sep=''), p.tmp.gene, width=8, height=6)
+            ggsave(file.path(report.dir, paste("Rplot.",n1,"vs",n2,".summed_by_gene.png",sep='')), p.tmp.gene, width=8, height=6)
 
 
             data.class.tmp <- subset(data.class,length_cat=="<1kb")
@@ -1219,7 +1219,7 @@ if (length(FL_multisample_indices)>0) {
                 guides(fill=FALSE) +
                 mytheme
             print(p.tmp.le1k)
-            ggsave(paste("Rplot.",n1,"vs",n2,".le1k.png",sep=''), p.tmp.le1k, width=8, height=6)
+            ggsave(file.path(report.dir, paste("Rplot.",n1,"vs",n2,".le1k.png",sep='')), p.tmp.le1k, width=8, height=6)
 
             data.class.tmp <- subset(data.class,length_cat=="1-3kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
@@ -1232,7 +1232,7 @@ if (length(FL_multisample_indices)>0) {
                 guides(fill=FALSE) +
                 mytheme
             print(p.tmp.1to3k)
-            ggsave(paste("Rplot.",n1,"vs",n2,".1to3k.png",sep=''), p.tmp.1to3k, width=8, height=6)
+            ggsave(file.path(report.dir, paste("Rplot.",n1,"vs",n2,".1to3k.png",sep='')), p.tmp.1to3k, width=8, height=6)
 
             data.class.tmp <- subset(data.class,length_cat=="3-5kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
@@ -1245,7 +1245,7 @@ if (length(FL_multisample_indices)>0) {
                 guides(fill=FALSE) +
                 mytheme
             print(p.tmp.3to5k)
-            ggsave(paste("Rplot.",n1,"vs",n2,".3to5k.png",sep=''), p.tmp.3to5k, width=8, height=6)
+            ggsave(file.path(report.dir, paste("Rplot.",n1,"vs",n2,".3to5k.png",sep='')), p.tmp.3to5k, width=8, height=6)
 
             data.class.tmp <- subset(data.class,length_cat=="5-10kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
@@ -1258,7 +1258,7 @@ if (length(FL_multisample_indices)>0) {
                 guides(fill=FALSE) +
                 mytheme
             print(p.tmp.5to10k)
-            ggsave(paste("Rplot.",n1,"vs",n2,".5to10k.png",sep=''), p.tmp.5to10k, width=8, height=6)
+            ggsave(file.path(report.dir, paste("Rplot.",n1,"vs",n2,".5to10k.png",sep='')), p.tmp.5to10k, width=8, height=6)
 
             data.class.tmp <- subset(data.class,length_cat==">10kb")
             pearson <- round(cor(data.class.tmp[,j1], data.class.tmp[,j2], method="pearson"), 2)
@@ -1271,11 +1271,7 @@ if (length(FL_multisample_indices)>0) {
                 guides(fill=FALSE) +
                 mytheme
             print(p.tmp.ge10k)
-            ggsave(paste("Rplot.",n1,"vs",n2,".ge10k.png",sep=''), p.tmp.ge10k, width=8, height=6)
-
-
-            #grid.arrange(p.tmp.le1k, p.tmp.1to3k, p.tmp.3to5k, p.tmp.5to10k, p.tmp.ge10k, ncol=2)
-
+            ggsave(file.path(report.dir, paste("Rplot.",n1,"vs",n2,".ge10k.png",sep='')), p.tmp.ge10k, width=8, height=6)
         }
     }
 }

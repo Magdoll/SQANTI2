@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '5.1.0'   # Python 3.7 syntax!
+__version__ = '7.0.0'   # Python 3.7 syntax!
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
