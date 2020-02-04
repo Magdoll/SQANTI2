@@ -220,7 +220,9 @@ if (length(FL_multisample_indices)>0)
         data.class[,name] <- data.class[j]*(10**6)/total_fl
         data.class[,name2] <- log10(data.class[j]*(10**6)/total_fl + 1)
     }
-    write.table(data.class, class.file2, quote=F, sep='\t');
+    data.class$novelGene <- sub(' ', '', data.class$novelGene) # remove blanks for R write out
+    data.class$structural_category <- sub('\n', '', data.class$structural_category)
+    write.table(data.class, class.file2, quote=F, sep='\t', row.names=F);
 }
 
 
