@@ -4,7 +4,7 @@
 # Modified by Liz (etseng@pacb.com) currently as SQANTI2 working version
 
 __author__  = "etseng@pacb.com"
-__version__ = '7.1.0'  # Python 3.7
+__version__ = '7.2.0'  # Python 3.7
 
 import pdb
 import os, re, sys, subprocess, timeit, glob
@@ -904,7 +904,7 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
     cat_ranking = {'full-splice_match': 5, 'incomplete-splice_match': 4, 'anyKnownJunction': 3, 'anyKnownSpliceSite': 2,
                    'geneOverlap': 1, '': 0}
 
-    #if trec.id.startswith('PB.102.9'):
+    #if trec.id.startswith('PB.1961.2'):
     #    pdb.set_trace()
     if trec.exonCount >= 2:
 
@@ -941,7 +941,7 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
                 #    pdb.set_trace()
                 if ref.exonCount == 1: # mono-exonic reference, handle specially here
                     if calc_exon_overlap(trec.exons, ref.exons) > 0 and cat_ranking[isoform_hit.str_class] < cat_ranking["geneOverlap"]:
-                        isoform_hit = myQueryTranscripts(trec.id, "NA", "NA", 1, trec.length,
+                        isoform_hit = myQueryTranscripts(trec.id, "NA", "NA", trec.exonCount, trec.length,
                                                             "geneOverlap",
                                                              subtype="mono-exon",
                                                              chrom=trec.chrom,
@@ -1120,7 +1120,7 @@ def transcriptsKnownSpliceSites(refs_1exon_by_chr, refs_exons_by_chr, start_ends
 
                 # see if there's already an existing match AND if so, if this one is better
                 if isoform_hit.str_class == "": # no match so far
-                    isoform_hit = myQueryTranscripts(trec.id, diff_tss, diff_tts, 1, trec.length, "full-splice_match",
+                    isoform_hit = myQueryTranscripts(trec.id, diff_tss, diff_tts, trec.exonCount, trec.length, "full-splice_match",
                                                             subtype="mono-exon",
                                                             chrom=trec.chrom,
                                                             strand=trec.strand,

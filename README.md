@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 02/04/2020 (v7.1.0)   Now works with Python 3.7 exclusively!!
+Last Updated: 02/04/2020 (v7.2.0)   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -32,6 +32,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2020.02.04 updated to version 7.2.0. Fixed classification bug where multi-exon transcripts were listed as having exon count of 1.
 
 2020.02.04 updated to version 7.1.0. Fixed classification `_TPM.txt` output format bug. Added `seq_A_downstream_TTS` field to classification output.
 
