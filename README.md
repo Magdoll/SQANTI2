@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 02/04/2020 (v7.2.0)   Now works with Python 3.7 exclusively!!
+Last Updated: 02/06/2020 (v7.3.0)   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -32,6 +32,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2020.02.06 updated to version 7.3.0. `sqanti_filter2.py` supports runA length filtering (`--runAlength`), monoexonic (`--filter_mono_exonic`) and skipping GTF/Isoform output (`--skipGTF` and `--skipFaFq`).
 
 2020.02.04 updated to version 7.2.0. Fixed classification bug where multi-exon transcripts were listed as having exon count of 1.
 
@@ -361,11 +363,21 @@ I've made a lightweight filtering script based on SQANTI2 output that filters fo
 The script usage is:
 
 ```
+usage: sqanti_filter2.py sqanti_class isoforms gtf_file
+                         [--sam SAM] [--faa FAA] 
+                         [-r RUNALENGTH] [-a INTRAPRIMING]
+                         [-c MIN_COV] [-m MAX_DIST_TO_KNOWN_END]
+                         [--filter_mono_exonic] 
+                         [--skipGTF] [--skipFaFq] 
+                         sqanti_class isoforms gtf_file
+sqanti_filter2.py: error: the following arguments are required: sqanti_class, isoforms, gtf_file
+
 python sqanti_filter2.py [classification] [fasta] [sam] [gtf]
          [-a INTRAPRIMING] [-c MIN_COV] [-m MAX_DIST_TO_KNOWN_END]
 ```
 
-where `-a` determines the fraction of genomic 'A's above which the isoform will be filtered. The default is `-a 0.8`. 
+where `-a` determines the fraction of genomic 'A's above which the isoform will be filtered. The default is `-a 0.6`. 
+`-r` is another option for looking at genomic 'A's that looks at the immediate run-A length. The default is `-r 6`. 
 
 `-m` sets the maximum distance to an annotated 3' end (the `diff_to_gene_TTS` field in classification output) to offset the intrapriming rule.
 
@@ -377,16 +389,13 @@ For example:
 ```
 python sqanti_filter2.py test_classification.txt \
                          test.renamed_corrected.fasta \
-                         test.renamed_corrected.sam \
                          test.gtf
 ```
 
 The current filtering rules are as follow:
 
-* If a transcript is FSM, ISM, or NIC, then it is kept unless the 3' end is unreliable.
-* If a transcript is NNC, genic, genomic, then it is kept only if all of below are true: (1) 3' end is reliable (2) does not have a junction that is labeled as RTSwitching (3) all junctions are either canonical or has short read coverage above `-c` threshold
-
-A transcript 3' end is *unreliable* if both of the following are true: the genomic 'A' content is above the `-a` threshold *and* the distance to the known 3' end exceeeds the `-m` threshold.
+* If a transcript is FSM, then it is kept unless the 3' end is unreliable (intrapriming).
+* If a transcript is not FSM, then it is kept only if all of below are true: (1) 3' end is reliable (2) does not have a junction that is labeled as RTSwitching (3) all junctions are either canonical or has short read coverage above `-c` threshold
 
 
 <a name="explain"/>
@@ -466,10 +475,11 @@ The output `.classification.txt` has the following fields:
 33. `CDS_genomic_end`: genomic coordinate of the CDS end. If on - strand, this coord will be smaller than the start.
 34. `predicted_NMD`: TRUE if there's a predicted ORF and CDS ends before the last junction; FALSE if otherwise. NA if non-coding.
 35. `perc_A_downstreamTTS`: percent of genomic "A"s in the downstream 20 bp window. If this number if high (say > 0.8), the 3' end site of this isoform is probably not reliable.
-36. `dist_peak`: distance to closest TSS based on CAGE Peak data. Negative means upstream of TSS and positive means downstream of TSS. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 10000 bp of the PacBio transcript start site. Will be `NA` if none are found within 10000 bp.
-37. `within_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
-38. `polyA_motif`: if `--polyA_motif_list` is given, shows the top ranking polyA motif found within 50 bp upstream of end.
-39. `polyA_dist`: if `--polyA_motif_list` is given, shows the location of the  last base of the hexamer. Position 0 is the putative poly(A) site. This distance is hence always negative because it is upstream. 
+36. `seq_A_downstream_TTS`: sequence of the downstream 20 bp window.
+37. `dist_peak`: distance to closest TSS based on CAGE Peak data. Negative means upstream of TSS and positive means downstream of TSS. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 10000 bp of the PacBio transcript start site. Will be `NA` if none are found within 10000 bp.
+38. `within_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
+39. `polyA_motif`: if `--polyA_motif_list` is given, shows the top ranking polyA motif found within 50 bp upstream of end.
+40. `polyA_dist`: if `--polyA_motif_list` is given, shows the location of the  last base of the hexamer. Position 0 is the putative poly(A) site. This distance is hence always negative because it is upstream. 
 
 
 <a name="junction"/>

@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '7.2.0'   # Python 3.7 syntax!
+__version__ = '7.3.0'   # Python 3.7 syntax!
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
@@ -60,21 +60,35 @@ def sqanti_filter_lite(args):
         filter_flag, filter_msg = False, ""
         percA = float(r['perc_A_downstream_TTS']) / 100
         assert 0 <= percA <= 1
+        runA = 0
+        while runA < len(r['seq_A_downstream_TTS']):
+            if r['seq_A_downstream_TTS'][runA]!='A':
+                break
+            runA += 1
         min_cov = float(r['min_cov']) if r['min_cov']!='NA' else None
         num_exon = int(r['exons'])
         is_RTS = r['RTS_stage'] == 'TRUE'
         is_canonical = r['all_canonical']=='canonical'
+        is_monoexonic = (num_exon == 1)
 
         cat = CATEGORY_DICT[r['structural_category']]
 
-        if cat in ['FSM', 'ISM', 'NIC']:
-            if (percA >= args.intrapriming and r['polyA_motif']=='NA' and
-                    (r['diff_to_gene_TSS']=='NA' or abs(int(r['diff_to_gene_TTS'])) > args.max_dist_to_known_end)):
+        potential_intrapriming = (percA >= args.intrapriming or runA >= args.runAlength) and \
+                                 r['polyA_motif'] == 'NA' and \
+                                 (r['diff_to_gene_TSS'] == 'NA' or abs(
+                                     int(r['diff_to_gene_TTS'])) > args.max_dist_to_known_end)
+
+
+        if cat in ['FSM']:
+            if potential_intrapriming:
                 filter_flag, filter_msg = True, "IntraPriming"
+            elif args.filter_mono_exonic and is_monoexonic:
+                filter_flag, filter_msg = True, "Mono-Exonic"
         else:
-            if (percA >= args.intrapriming and r['polyA_motif']=='NA' and
-                    (r['diff_to_gene_TSS']=='NA' or abs(int(r['diff_to_gene_TTS'])) > args.max_dist_to_known_end)):
+            if potential_intrapriming:
                 filter_flag, filter_msg = True, "IntraPriming"
+            elif args.filter_mono_exonic and is_monoexonic:
+                filter_flag, filter_msg = True, "Mono-Exonic"
             elif is_RTS:
                 filter_flag, filter_msg = True, "RTSwitching"
             elif (not is_canonical) and (min_cov is None or (min_cov is not None and min_cov < args.min_cov)):
@@ -87,12 +101,12 @@ def sqanti_filter_lite(args):
 
     print("{0} isoforms read from {1}. {2} to be kept.".format(total_count, args.sqanti_class, len(seqids_to_keep)), file=sys.stdout)
 
-    for r in SeqIO.parse(open(args.isoforms), fafq_type):
-        if r.id in seqids_to_keep:
-            SeqIO.write(r, fout, fafq_type)
-    fout.close()
-    print("Output written to: {0}".format(fout.name), file=sys.stdout)
-
+    if not args.skipFaFq:
+        for r in SeqIO.parse(open(args.isoforms), fafq_type):
+            if r.id in seqids_to_keep:
+                SeqIO.write(r, fout, fafq_type)
+        fout.close()
+        print("Output written to: {0}".format(fout.name), file=sys.stdout)
 
     # write out a new .classification.txt, .junctions.txt
     outputClassPath = prefix + '.filtered_lite_classification.txt'
@@ -115,13 +129,13 @@ def sqanti_filter_lite(args):
                 writer.writerow(r)
         print("Output written to: {0}".format(f.name), file=sys.stdout)
 
-    outputGTF = prefix + '.filtered_lite.gtf'
-    with open(outputGTF, 'w') as f:
-        for r in collapseGFFReader(args.gtf_file):
-            if r.seqid in seqids_to_keep:
-                write_collapseGFF_format(f, r)
-        print("Output written to: {0}".format(f.name), file=sys.stdout)
-
+    if not args.skipGTF:
+        outputGTF = prefix + '.filtered_lite.gtf'
+        with open(outputGTF, 'w') as f:
+            for r in collapseGFFReader(args.gtf_file):
+                if r.seqid in seqids_to_keep:
+                    write_collapseGFF_format(f, r)
+            print("Output written to: {0}".format(f.name), file=sys.stdout)
 
     if args.sam is not None:
         outputSam = prefix + '.filtered_lite.sam'
@@ -142,32 +156,38 @@ def sqanti_filter_lite(args):
         print("Output written to: {0}".format(f.name), file=sys.stdout)
 
 
-
-    print("**** Generating SQANTI report....", file=sys.stderr)
+    print("**** Generating SQANTI2 report....", file=sys.stderr)
     cmd = RSCRIPTPATH + " {d}/{f} {c} {j}".format(d=utilitiesPath, f=RSCRIPT_REPORT, c=outputClassPath, j=outputJuncPath)
     if subprocess.check_call(cmd, shell=True)!=0:
         print("ERROR running command: {0}".format(cmd), file=sys.stderr)
         sys.exit(-1)
 
 
-
 def main():
-
     parser = argparse.ArgumentParser(description="Filtering of Isoforms based on SQANTI2 attributes")
     parser.add_argument('sqanti_class', help='\t\tSQANTI classification output file.')
     parser.add_argument('isoforms', help='\t\tfasta/fastq isoform file to be filtered by SQANTI2')
     parser.add_argument('gtf_file', help='\t\tGTF of the input fasta/fastq')
     parser.add_argument('--sam', help='\t\t(Optional) SAM alignment of the input fasta/fastq')
     parser.add_argument('--faa', help="\t\t(Optional) ORF prediction faa file to be filtered by SQANTI2")
-    parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.8)')
+    parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.6)')
+    parser.add_argument('-r', "--runAlength", type=int, default=6, help='\t\tContinuous run-A length at genomic 3\' end to flag an isoform as intra-priming (default: 6)')
     parser.add_argument('-m',"--max_dist_to_known_end", type=int, default=50, help="\t\tMaximum distance to an annotated 3' end to preserve as a valid 3' end and not filter out (default: 50bp)")
     parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")
+    parser.add_argument("--filter_mono_exonic", action="store_true", default=False, help='\t\tFilter out all mono-exonic transcripts (default: OFF)')
+    parser.add_argument("--skipGTF", action="store_true", default=False, help='\t\tSkip output of GTF')
+    parser.add_argument("--skipFaFq", action="store_true", default=False, help='\t\tSkip otuput of isoform fasta/fastq')
     #parser.add_argument("--always_keep_canonical", default=False, action="store_true", help="Always keep isoforms with all canonical junctions, regardless of other criteria. (default: False)")
     parser.add_argument("-v", "--version", help="Display program version number.", action='version', version='SQANTI2 '+str(__version__))
 
     args = parser.parse_args()
 
-    assert 0 <= args.intrapriming <= 1
+    if args.intrapriming < 0.25 or args.intrapriming > 1.:
+        print("ERROR: --intrapriming must be between 0.25-1, instead given {0}! Abort!".format(args.intrapriming), file=sys.stderr)
+        sys.exit(-1)
+    if args.runAlength < 4 or args.runAlength > 20:
+        print("ERROR: --runAlength must be between 4-20, instead given {0}! Abort!".format(args.runAlength), file=sys.stderr)
+        sys.exit(-1)
 
     args.sqanti_class = os.path.abspath(args.sqanti_class)
     if not os.path.isfile(args.sqanti_class):
