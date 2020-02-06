@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '7.3.0'   # Python 3.7 syntax!
+__version__ = '7.3.1'   # Python 3.7 syntax!
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
@@ -53,7 +53,7 @@ def sqanti_filter_lite(args):
 
     fout = open(prefix + '.filtered_lite.' + fafq_type, 'w')
 
-    seqids_to_keep = []
+    seqids_to_keep = set()
     total_count = 0
     for r in DictReader(open(args.sqanti_class), delimiter='\t'):
         total_count += 1
@@ -95,7 +95,7 @@ def sqanti_filter_lite(args):
                 filter_flag, filter_msg = True, "LowCoverage/Non-Canonical"
 
         if not filter_flag:
-            seqids_to_keep.append(r['isoform'])
+            seqids_to_keep.add(r['isoform'])
         else:
             fcsv.write("{0},{1}\n".format(r['isoform'], filter_msg))
 
@@ -119,15 +119,16 @@ def sqanti_filter_lite(args):
                 writer.writerow(r)
         print("Output written to: {0}".format(f.name), file=sys.stdout)
 
-    outputJuncPath = prefix + '.filtered_lite_junctions.txt'
-    with open(outputJuncPath, 'w') as f:
-        reader = DictReader(open(args.sqanti_class.replace('_classification', '_junctions')), delimiter='\t')
-        writer = DictWriter(f, reader.fieldnames, delimiter='\t')
-        writer.writeheader()
-        for r in reader:
-            if r['isoform'] in seqids_to_keep:
-                writer.writerow(r)
-        print("Output written to: {0}".format(f.name), file=sys.stdout)
+    if not args.skipJunction:
+        outputJuncPath = prefix + '.filtered_lite_junctions.txt'
+        with open(outputJuncPath, 'w') as f:
+            reader = DictReader(open(args.sqanti_class.replace('_classification', '_junctions')), delimiter='\t')
+            writer = DictWriter(f, reader.fieldnames, delimiter='\t')
+            writer.writeheader()
+            for r in reader:
+                if r['isoform'] in seqids_to_keep:
+                    writer.writerow(r)
+            print("Output written to: {0}".format(f.name), file=sys.stdout)
 
     if not args.skipGTF:
         outputGTF = prefix + '.filtered_lite.gtf'
@@ -176,7 +177,8 @@ def main():
     parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")
     parser.add_argument("--filter_mono_exonic", action="store_true", default=False, help='\t\tFilter out all mono-exonic transcripts (default: OFF)')
     parser.add_argument("--skipGTF", action="store_true", default=False, help='\t\tSkip output of GTF')
-    parser.add_argument("--skipFaFq", action="store_true", default=False, help='\t\tSkip otuput of isoform fasta/fastq')
+    parser.add_argument("--skipFaFq", action="store_true", default=False, help='\t\tSkip output of isoform fasta/fastq')
+    parser.add_argument("--skipJunction", action="store_true", default=False, help='\t\tSkip output of junctions file')
     #parser.add_argument("--always_keep_canonical", default=False, action="store_true", help="Always keep isoforms with all canonical junctions, regardless of other criteria. (default: False)")
     parser.add_argument("-v", "--version", help="Display program version number.", action='version', version='SQANTI2 '+str(__version__))
 

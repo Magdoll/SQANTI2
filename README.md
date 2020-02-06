@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 02/06/2020 (v7.3.0)   Now works with Python 3.7 exclusively!!
+Last Updated: 02/06/2020 (v7.3.1)   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -33,7 +33,7 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 ## Updates
 
-2020.02.06 updated to version 7.3.0. `sqanti_filter2.py` supports runA length filtering (`--runAlength`), monoexonic (`--filter_mono_exonic`) and skipping GTF/Isoform output (`--skipGTF` and `--skipFaFq`).
+2020.02.06 updated to version 7.3.1. `sqanti_filter2.py` supports runA length filtering (`--runAlength`), monoexonic (`--filter_mono_exonic`) and skipping GTF/Isoform output (`--skipGTF` and `--skipFaFq`).
 
 2020.02.04 updated to version 7.2.0. Fixed classification bug where multi-exon transcripts were listed as having exon count of 1.
 
