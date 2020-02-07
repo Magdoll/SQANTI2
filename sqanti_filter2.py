@@ -1,5 +1,5 @@
 __author__  = "etseng@pacb.com"
-__version__ = '7.3.1'   # Python 3.7 syntax!
+__version__ = '7.3.2'   # Python 3.7 syntax!
 
 """
 Lightweight filtering of SQANTI by using .classification.txt output
@@ -171,7 +171,7 @@ def main():
     parser.add_argument('gtf_file', help='\t\tGTF of the input fasta/fastq')
     parser.add_argument('--sam', help='\t\t(Optional) SAM alignment of the input fasta/fastq')
     parser.add_argument('--faa', help="\t\t(Optional) ORF prediction faa file to be filtered by SQANTI2")
-    parser.add_argument('-a',"--intrapriming", type=float, default=0.8, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.6)')
+    parser.add_argument('-a',"--intrapriming", type=float, default=0.6, help='\t\tAdenine percentage at genomic 3\' end to flag an isoform as intra-priming (default: 0.6)')
     parser.add_argument('-r', "--runAlength", type=int, default=6, help='\t\tContinuous run-A length at genomic 3\' end to flag an isoform as intra-priming (default: 6)')
     parser.add_argument('-m',"--max_dist_to_known_end", type=int, default=50, help="\t\tMaximum distance to an annotated 3' end to preserve as a valid 3' end and not filter out (default: 50bp)")
     parser.add_argument("-c", "--min_cov", type=int, default=3, help="\t\tMinimum junction coverage for each isoform (only used if min_cov field is not 'NA'), default: 3")

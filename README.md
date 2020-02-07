@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 02/06/2020 (v7.3.1)   Now works with Python 3.7 exclusively!!
+Last Updated: 02/07/2020 (v7.3.2)   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -32,6 +32,8 @@ New features implemented in SQANTI2 not available in SQANTI:
 ![sqanti2workflow](https://github.com/Magdoll/images_public/blob/master/SQANTI2_figures/sqanti2_workflow.png)
 
 ## Updates
+
+2020.02.07 updated to version 7.3.2. fixed default param for intrapriming to 0.6.
 
 2020.02.06 updated to version 7.3.1. `sqanti_filter2.py` supports runA length filtering (`--runAlength`), monoexonic (`--filter_mono_exonic`) and skipping GTF/Isoform output (`--skipGTF` and `--skipFaFq`).
 
