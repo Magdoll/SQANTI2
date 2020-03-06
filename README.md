@@ -1,6 +1,6 @@
 # SQANTI2
 
-Last Updated: 03/04/2020 (v7.4.0)   Now works with Python 3.7 exclusively!!
+Last Updated: 03/06/2020 (v7.4.0)   Now works with Python 3.7 exclusively!!
 
 ## What is SQANTI2
 
@@ -11,8 +11,9 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 * NMD detection -- new field `predicted_NMD` in classification output.
 * Intron retention --- marked with `intron_retention` in `subcategory` field in classification output.
-* CAGE peak --- new fields `dist_peak` and `within_peak` in classification output. Must provide CAGE peak data.
-* polyA motif --- new field `polyA_motif` in classification output. Must provide polyA motif list.
+* CAGE peak --- new fields `dist_to_cage_peak` and `within_cage_peak` in classification output. Must provide CAGE peak data.
+* PolyA site --- new fields `dist_to_polya_site` and `within_polya_site` in classification output. Must provide PolyA site data. 
+* PolyA motif --- new field `polyA_motif` in classification output. Must provide polyA motif list.
 * CDS-annotated GFF --- SQANTI2 outputs a `xxxx.cds.gff` GFF file that annotates CDS regions.
 * PacBio Iso-Seq FL count multi-sample plotting --- use the `--fl_count` option for single or multi-sample FL counts
 
@@ -33,29 +34,29 @@ New features implemented in SQANTI2 not available in SQANTI:
 
 ## Updates
 
-2020.03.04 updated to version 7.4.0. Minor bug fix on report R script handling less complex splicing.
-
-2020.02.06 updated to version 7.3.1. `sqanti_filter2.py` supports runA length filtering (`--runAlength`), monoexonic (`--filter_mono_exonic`) and skipping GTF/Isoform output (`--skipGTF` and `--skipFaFq`).
-
-2020.02.04 updated to version 7.2.0. Fixed classification bug where multi-exon transcripts were listed as having exon count of 1.
-
-2020.02.04 updated to version 7.1.0. Fixed classification `_TPM.txt` output format bug. Added `seq_A_downstream_TTS` field to classification output.
-
-2020.01.31 updated to version 7.0.0. Minor re-classification changes for edge case mono-exonic transcripts. Supporting multithreading with `-n` option!
-
-2019.12.12 updated to version 6.0.0. MAJOR re-classification changes! See [notes](https://www.dropbox.com/s/d1ya562ib00qhzc/Dec2019_SQANTI2_6.0.0_release_Notes.pptx?dl=0)
-
-2019.11.24 updated to version 5.1.0. `--is_fusion` must be used together with `--gtf`. Added addtional tables if `--fl_count` supplied.
-
-2019.11.12 updated to version 5.0.0. Now works exclusively with Python 3.7!
-
-2019.09.24 updated to version 4.1. `sqanti_qc2.py` now supports `--fl_count` multi-sample with plotting.
-
-2019.08.22 updated to version 4.0. `sqanti_filter2.py` now outputs GTF.
+2020.03.06 updated to version 7.4.0. Added `--polyA_peak` support. Minor bug fix on report R script handling less complex splicing.
 
 <details>
    <summary>Click here to see older update logs.</summary>
     
+    2020.02.06 updated to version 7.3.1. `sqanti_filter2.py` supports runA length filtering (`--runAlength`), monoexonic (`--filter_mono_exonic`) and skipping GTF/Isoform output (`--skipGTF` and `--skipFaFq`).
+
+    2020.02.04 updated to version 7.2.0. Fixed classification bug where multi-exon transcripts were listed as having exon count of 1.
+    
+    2020.02.04 updated to version 7.1.0. Fixed classification `_TPM.txt` output format bug. Added `seq_A_downstream_TTS` field to classification output.
+    
+    2020.01.31 updated to version 7.0.0. Minor re-classification changes for edge case mono-exonic transcripts. Supporting multithreading with `-n` option!
+    
+    2019.12.12 updated to version 6.0.0. MAJOR re-classification changes! See [notes](https://www.dropbox.com/s/d1ya562ib00qhzc/Dec2019_SQANTI2_6.0.0_release_Notes.pptx?dl=0)
+    
+    2019.11.24 updated to version 5.1.0. `--is_fusion` must be used together with `--gtf`. Added addtional tables if `--fl_count` supplied.
+    
+    2019.11.12 updated to version 5.0.0. Now works exclusively with Python 3.7!
+    
+    2019.09.24 updated to version 4.1. `sqanti_qc2.py` now supports `--fl_count` multi-sample with plotting.
+    
+    2019.08.22 updated to version 4.0. `sqanti_filter2.py` now outputs GTF.
+
     2019.08.19 updated to version 3.9. Fixed minor bug in removing superPBID (not always the case) in `sqanti_qc2.py`
     
     2019.08.13 updated to version 3.8. Fixed `SQANTI_report2.R` printing bug for when polyA info is NA.
@@ -217,7 +218,8 @@ python sqanti_qc2.py [-t cpus] [-n chunks]
      [--gtf] [--skipORF] 
      [-c shortread_STAR_junction_out] 
      [--cage_peak CAGE_PEAK_BED]
-     [--polyA_motif_list POLYA_LIST]
+     [--polya_peak PolyA_PEAK_BED]
+     [--polyA_motif_list POLYA_MOTIF_LIST]
      [--fl_count FL_COUNT]
      [--expression EXPRESSION]
      [--aligner_choice=minimap2,deSALT]
@@ -246,6 +248,7 @@ python sqanti_qc2.py -t 30 -n 10 --gtf example/test.gtf \
      gencode.v29.annotation.gtf hg38.fa \
      --fl_count example/test.chained_count.txt \
      --polyA_motif_list example/polyA.list \
+     --polyA_peak example/hg38.polyA_sites.bed \
      --cage_peak hg38.cage_peak_phase1and2combined_coord.bed \
      -c "Public_Intronpolis/*10.modified"
 ```
@@ -478,10 +481,12 @@ The output `.classification.txt` has the following fields:
 34. `predicted_NMD`: TRUE if there's a predicted ORF and CDS ends before the last junction; FALSE if otherwise. NA if non-coding.
 35. `perc_A_downstreamTTS`: percent of genomic "A"s in the downstream 20 bp window. If this number if high (say > 0.8), the 3' end site of this isoform is probably not reliable.
 36. `seq_A_downstream_TTS`: sequence of the downstream 20 bp window.
-37. `dist_peak`: distance to closest TSS based on CAGE Peak data. Negative means upstream of TSS and positive means downstream of TSS. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 10000 bp of the PacBio transcript start site. Will be `NA` if none are found within 10000 bp.
-38. `within_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
-39. `polyA_motif`: if `--polyA_motif_list` is given, shows the top ranking polyA motif found within 50 bp upstream of end.
-40. `polyA_dist`: if `--polyA_motif_list` is given, shows the location of the  last base of the hexamer. Position 0 is the putative poly(A) site. This distance is hence always negative because it is upstream. 
+37. `dist_to_cage_peak`: distance to closest TSS based on CAGE Peak data. Negative means upstream of TSS and positive means downstream of TSS. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 10000 bp of the PacBio transcript start site. Will be `NA` if none are found within 10000 bp.
+38. `within_cage_peak`: TRUE if the PacBio transcript start site is within a CAGE Peak. 
+39. `dist_to_polya_site`: distance to closest polyA site based on PolyA site data. Negative means upstream of closest site and positive means downstream of closest site. Strand-specific. SQANTI2 only searches for nearby CAGE Peaks within 100 bp of the PacBio transcript start site. Will be `NA` if none are found within 100 bp.
+40. `within_polya_site`: TRUE if the PacBio transcript polyA site is within 100 bp (upstream or downstream) of an annotated polyA site.
+41. `polyA_motif`: if `--polyA_motif_list` is given, shows the top ranking polyA motif found within 50 bp upstream of end.
+42. `polyA_dist`: if `--polyA_motif_list` is given, shows the location of the last base of the hexamer. Position 0 is the putative poly(A) site. This distance is hence always negative because it is upstream. 
 
 
 <a name="junction"/>
