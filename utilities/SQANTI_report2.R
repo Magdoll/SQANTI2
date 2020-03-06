@@ -194,7 +194,15 @@ isoPerGene$novelGene = factor(isoPerGene$novelGene,
                               levels = c("Annotated Genes", "Novel Genes"), 
                               ordered=TRUE)
 
-isoPerGene$nIsoCat =cut(isoPerGene$nIso, breaks = c(0,1,3,5,max(isoPerGene$nIso)+1), labels = c("1", "2-3", "4-5", ">=6"))
+if (max(isoPerGene$nIso) >= 6) {
+  isoPerGene$nIsoCat =cut(isoPerGene$nIso,
+                          breaks = c(0,1,3,5,max(isoPerGene$nIso)+1),
+                          labels = c("1", "2-3", "4-5", ">=6"))
+} else {
+  isoPerGene$nIsoCat =cut(isoPerGene$nIso,
+                          breaks = c(0,1,max(isoPerGene$nIso)+1),
+                          labels = c("1", ">=2"))
+}
 
 
 # single FL count file provided

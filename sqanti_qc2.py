@@ -6,8 +6,7 @@
 __author__  = "etseng@pacb.com"
 __version__ = '7.3.2'  # Python 3.7
 
-import pdb
-import os, re, sys, subprocess, timeit, glob
+import os, re, sys, subprocess, timeit, glob, copy
 import shutil
 import distutils.spawn
 import itertools
@@ -16,6 +15,7 @@ import argparse
 import math
 from collections import defaultdict, Counter, namedtuple
 from csv import DictWriter, DictReader
+from multiprocessing import Process
 
 utilitiesPath =  os.path.dirname(os.path.realpath(__file__))+"/utilities/" 
 sys.path.insert(0, utilitiesPath)
@@ -111,6 +111,7 @@ FIELDS_CLASS = ['isoform', 'chrom', 'strand', 'length',  'exons',  'structural_c
                 'CDS_end', 'CDS_genomic_start', 'CDS_genomic_end', 'predicted_NMD',
                 'perc_A_downstream_TTS', 'seq_A_downstream_TTS',
                 'dist_to_cage_peak', 'within_cage_peak',
+                'dist_to_polya_site', 'within_polya_site',
                 'polyA_motif', 'polyA_dist']
 
 RSCRIPTPATH = distutils.spawn.find_executable('Rscript')
@@ -219,6 +220,7 @@ class myQueryTranscripts:
                  q_exon_overlap = 0,
                  FSM_class = None, percAdownTTS = None, seqAdownTTS=None,
                  dist_cage='NA', within_cage='NA',
+                 dist_polya_site='NA', within_polya_site='NA',
                  polyA_motif='NA', polyA_dist='NA'):
 
         self.id  = id
@@ -267,8 +269,10 @@ class myQueryTranscripts:
         self.seqAdownTTS  = seqAdownTTS
         self.dist_cage   = dist_cage
         self.within_cage = within_cage
+        self.within_polya_site = within_polya_site
+        self.dist_polya_site   = dist_polya_site    # distance to the closest polyA site (--polyA_peak, BEF file)
         self.polyA_motif = polyA_motif
-        self.polyA_dist  = polyA_dist
+        self.polyA_dist  = polyA_dist               # distance to the closest polyA motif (--polyA_motif_list, 6mer motif list)
 
     def get_total_diff(self):
         return abs(self.tss_diff)+abs(self.tts_diff)
@@ -317,6 +321,8 @@ class myQueryTranscripts:
                                                                                                                                                            str(self.seqAdownTTS),
                                                                                                                                                            str(self.dist_cage),
                                                                                                                                                            str(self.within_cage),
+                                                                                                                                                           str(self.dist_polya_site),
+                                                                                                                                                           str(self.within_polya_site),
                                                                                                                                                            str(self.polyA_motif),
                                                                                                                                                            str(self.polyA_dist))
 
@@ -363,6 +369,8 @@ class myQueryTranscripts:
          'seq_A_downstream_TTS': self.seqAdownTTS,
          'dist_to_cage_peak': self.dist_cage,
          'within_cage_peak': self.within_cage,
+         'dist_to_polya_site': self.dist_polya_site,
+         'within_polya_site': self.within_polya_site,
          'polyA_motif': self.polyA_motif,
          'polyA_dist': self.polyA_dist
          }
@@ -1388,6 +1396,11 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
     else:
         cage_peak_obj = None
 
+    if args.polyA_peak is not None:
+        print("**** Reading polyA Peak data.", file=sys.stdout)
+        polya_peak_obj = PolyAPeak(args.polyA_peak)
+    else:
+        polya_peak_obj = None
 
     if args.polyA_motif_list is not None:
         print("**** Reading PolyA motif list.", file=sys.stdout)
@@ -1458,6 +1471,15 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                     within_cage, dist_cage = cage_peak_obj.find(rec.chrom, rec.strand, rec.txEnd)
                 isoform_hit.within_cage = within_cage
                 isoform_hit.dist_cage = dist_cage
+
+            # look at PolyA Peak info (if available)
+            if polya_peak_obj is not None:
+                if rec.strand == '+':
+                    within_polya_site, dist_polya_site = polya_peak_obj.find(rec.chrom, rec.strand, rec.txStart)
+                else:
+                    within_polya_site, dist_polya_site = polya_peak_obj.find(rec.chrom, rec.strand, rec.txEnd)
+                isoform_hit.within_polya_site = within_polya_site
+                isoform_hit.dist_polya_site = dist_polya_site
 
             # polyA motif finding: look within 50 bp upstream of 3' end for the highest ranking polyA motif signal (user provided)
             if polyA_motif_list is not None:
@@ -1900,9 +1922,44 @@ class CAGEPeak:
                     within_peak, dist_peak = (start0<=query<end1), d
         return within_peak, dist_peak
 
-import pdb
-import copy
-from multiprocessing import Process
+class PolyAPeak:
+    def __init__(self, polya_bed_filename):
+        self.polya_bed_filename = polya_bed_filename
+        self.polya_peaks = defaultdict(lambda: IntervalTree()) # (chrom,strand) --> intervals of peaks
+
+        self.read_bed()
+
+    def read_bed(self):
+        for line in open(self.polya_bed_filename):
+            raw = line.strip().split()
+            chrom = raw[0]
+            start0 = int(raw[1])
+            end1 = int(raw[2])
+            strand = raw[5]
+            self.polya_peaks[(chrom,strand)].insert(start0, end1, (start0, end1))
+
+    def find(self, chrom, strand, query, search_window=100):
+        """
+        :param start0: 0-based start of the 5' end to query
+        :return: <True/False falls within some distance to polyA>, distance to closest
+        + if downstream, - if upstream (watch for strand!!!)
+        """
+        assert strand in ('+', '-')
+        hits = self.polya_peaks[(chrom,strand)].find(query-search_window, query+search_window)
+        if len(hits) == 0:
+            return False, None
+        else:
+            s0, e1 = hits[0]
+            min_dist = query - s0
+            for s0, e1 in hits[1:]:
+                d = query - s0
+                if abs(d) < abs(min_dist):
+                    min_dist = d
+            if strand == '-':
+                min_dist = -min_dist
+            return True, min_dist
+
+
 def split_input_run(args):
     if os.path.exists(SPLIT_ROOT_DIR):
         print("WARNING: {0} directory already exists! Abort!".format(SPLIT_ROOT_DIR), file=sys.stderr)
@@ -2020,6 +2077,7 @@ def main():
     parser.add_argument("--aligner_choice", choices=['minimap2', 'deSALT', 'gmap'], default='minimap2')
     parser.add_argument('--cage_peak', help='\t\tFANTOM5 Cage Peak (BED format, optional)')
     parser.add_argument("--polyA_motif_list", help="\t\tRanked list of polyA motifs (text, optional)")
+    parser.add_argument("--polyA_peak", help='\t\tPolyA Peak (BED format, optional)')
     parser.add_argument("--phyloP_bed", help="\t\tPhyloP BED for conservation score (BED, optional)")
     parser.add_argument("--skipORF", default=False, action="store_true", help="\t\tSkip ORF prediction (to save time)")
     parser.add_argument("--is_fusion", default=False, action="store_true", help="\t\tInput are fusion isoforms, must supply GTF as input using --gtf")
@@ -2124,6 +2182,7 @@ def main():
         f.write("Junction\t" + (os.path.basename(args.coverage) if args.coverage is not None else "NA") + "\n")
         f.write("CagePeak\t" + (os.path.basename(args.cage_peak)  if args.cage_peak is not None else "NA") + "\n")
         f.write("PolyA\t" + (os.path.basename(args.polyA_motif_list) if args.polyA_motif_list is not None else "NA") + "\n")
+        f.write("PolyAPeak\t" + (os.path.basename(args.polyA_peak)  if args.polyA_peak is not None else "NA") + "\n")
         f.write("IsFusion\t" + str(args.is_fusion) + "\n")
     
     # Running functionality
