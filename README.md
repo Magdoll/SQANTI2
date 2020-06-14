@@ -1,24 +1,10 @@
 # SQANTI2
 
-Last Updated: 03/06/2020 (v7.4.0)   Now works with Python 3.7 exclusively!!
-
-## What is SQANTI2
-
-SQANTI2 is a developer's version of SQANTI ([publication](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5848618/), [code repository](https://bitbucket.org/ConesaLab/sqanti)). 
+AS OF June 14, 2020, SQANTI2 will no longer be actively supported. Please move to [SQANTI3](https://github.com/ConesaLab/SQANTI3) and if you encounter issues, file bugs there. You are welcome to continue using SQANTI2, however I will not be supporting bug fixes.
 
 
-New features implemented in SQANTI2 not available in SQANTI:
 
-* NMD detection -- new field `predicted_NMD` in classification output.
-* Intron retention --- marked with `intron_retention` in `subcategory` field in classification output.
-* CAGE peak --- new fields `dist_to_cage_peak` and `within_cage_peak` in classification output. Must provide CAGE peak data.
-* PolyA site --- new fields `dist_to_polya_site` and `within_polya_site` in classification output. Must provide PolyA site data. 
-* PolyA motif --- new field `polyA_motif` in classification output. Must provide polyA motif list.
-* CDS-annotated GFF --- SQANTI2 outputs a `xxxx.cds.gff` GFF file that annotates CDS regions.
-* PacBio Iso-Seq FL count multi-sample plotting --- use the `--fl_count` option for single or multi-sample FL counts
-
-
-## SQANTI2 HowTos
+## SQANTI2 HowTos [NO LONGER MAINTAINED]
 
 * <a href="#install">Setting up SQANTI2</a>
 * <a href="#input">Running SQANTI2 Classification</a>
